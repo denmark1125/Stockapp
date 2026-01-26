@@ -29,23 +29,49 @@ const App: React.FC = () => {
   const [newHolding, setNewHolding] = useState({ code: '', name: '', price: '', qty: '' });
   const [selectedStock, setSelectedStock] = useState<DailyAnalysis | null>(null);
 
-  // AI 戰報狀態
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  // AI 深度報告狀態 (僅在點擊時觸發)
+  const [isAiAnalysisOpen, setIsAiAnalysisOpen] = useState(false);
   const [aiReport, setAiReport] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  // 1. 監聽 Auth 狀態
+  /**
+   * 1. 本地量化演算法引擎 (Local Quant Engine)
+   * 這是決策的核心，不消耗 API 額度且邏輯嚴謹。
+   */
+  const calculateTradeSignal = useCallback((stock: DailyAnalysis) => {
+    const score = stock.ai_score ?? 0;
+    const roe = stock.roe ?? 0;
+    const growth = stock.revenue_growth ?? 0;
+    const technical = stock.technical_signal || "";
+    
+    // --- 賣出訊號 (Sell Logic) ---
+    if (score < 60) return { signal: "賣出", color: "rose", reason: "AI 總體評分不及格，趨勢極端疲弱，建議避開。" };
+    if (technical.includes("死亡交叉") || technical.includes("空頭")) return { signal: "技術轉弱", color: "rose", reason: "技術面出現空頭排列，短期下行壓力巨大。" };
+    if (growth < -20) return { signal: "基本面惡化", color: "rose", reason: "營收出現嚴重負成長，基本面支撐力道薄弱。" };
+
+    // --- 買進訊號 (Buy Logic) ---
+    if (score >= 85 && (technical.includes("多頭") || technical.includes("金叉"))) {
+      return { signal: "強力買進", color: "emerald", reason: `評分 (${score}) 與技術面完美契合，多頭動能強勁。` };
+    }
+    if (roe > 15 && growth > 10) {
+      return { signal: "價值選股", color: "emerald", reason: `獲利能力優秀 (ROE: ${roe}%) 且營收持續增長。` };
+    }
+
+    // --- 邏輯防呆與風險提示 (Guardrails) ---
+    if (roe <= 5) return { signal: "觀望", color: "slate", reason: "獲利能力疲弱 (ROE過低)，目前不具備長期投資價值。" };
+    if (score > 80 && growth < 0) return { signal: "小心假突破", color: "slate", reason: "技術面強勢但營收負成長，需留意高檔出貨風險。" };
+
+    return { signal: "中性/持股", color: "slate", reason: "走勢平穩，建議維持目前持股水位，持續觀察。" };
+  }, []);
+
+  // 監聽 Auth
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
     return () => subscription.unsubscribe();
   }, []);
 
-  // 2. 資料載入
+  // 載入資料
   const loadData = useCallback(async () => {
     if (!session) return;
     setState(prev => ({ ...prev, loading: true }));
@@ -62,54 +88,39 @@ const App: React.FC = () => {
         lastUpdated: new Date() 
       }));
     } catch (err) {
-      console.error(err);
       setState(prev => ({ ...prev, loading: false, error: "Sync Error" }));
     }
   }, [session]);
 
   useEffect(() => { if (session) loadData(); }, [session, loadData]);
 
-  // 3. 生成 AI 戰報
-  const generateAiReport = async () => {
-    if (state.data.length === 0) return;
+  /**
+   * 2. 深度 AI 解讀 (Deep Insight)
+   * 僅在使用者點擊 Modal 時才呼叫 API，節省額度
+   */
+  const handleDeepAnalysis = async (stock: DailyAnalysis) => {
     setIsAiLoading(true);
-    setIsReportModalOpen(true);
-    
+    setAiReport(null);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API });
-      const top5 = state.data.slice(0, 5).map(s => 
-        `股票：${s.stock_name}，產業：${s.sector}，AI評分：${s.ai_score}，技術訊號：${s.technical_signal}`
-      ).join('\n');
-
       const prompt = `
-        你是一位專門服務 CEO 的首席市場策略官。請根據以下今日台股前 5 名強勢股數據，生成一份「CEO 晨間簡報」。
-        
-        數據內容：
-        ${top5}
-
-        請嚴格依照以下格式生成（使用繁體中文）：
-        1. 【今日市場氣氛】：用一句話形容今天大盤趨勢（多頭/空頭/震盪）。
-        2. 【資金流向觀察】：根據產業分布，分析資金正在往哪個題材集中。
-        3. 【執行官操作心法】：給 CEO 今日的投資建議（簡潔有力）。
-
-        要求：排版要有專業雜誌感，口吻成熟冷靜。
+        請以資深分析師的身份，對股票「${stock.stock_name} (${stock.stock_code})」進行深度分析。
+        數據如下：ROE ${stock.roe}%, 營收成長 ${stock.revenue_growth}%, AI評分 ${stock.ai_score}, 技術面：${stock.technical_signal}。
+        請給出三點精確的洞察，最後給出具體的「執行策略」。使用繁體中文，格式請保持簡潔專業。
       `;
-
       const result = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
       });
-
       setAiReport(result.text);
     } catch (err) {
-      console.error("AI Report Error:", err);
-      setAiReport("目前無法連結 AI 策略官，請稍後再試。");
+      setAiReport("分析引擎目前忙碌中，請稍後。");
     } finally {
       setIsAiLoading(false);
     }
   };
 
-  // 4. Auth 處理
+  // 3. 處理 Auth
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthLoading(true);
@@ -131,24 +142,32 @@ const App: React.FC = () => {
     }
   };
 
+  // 4. 決策矩陣運算 (包含損益計算)
   const decisionMatrix = useMemo(() => {
     const today = state.data;
     const topPick = today.length > 0 ? today.reduce((prev, curr) => (prev.ai_score! > curr.ai_score!) ? prev : curr) : null;
     
     const portfolioDetails = state.portfolio.map(item => {
       const market = today.find(d => d.stock_code === item.stock_code);
+      const currentPrice = market?.close_price || item.buy_price;
+      const profitLossPercent = ((currentPrice - item.buy_price) / item.buy_price) * 100;
+      
+      // 使用量化引擎
+      const localAnalysis = market ? calculateTradeSignal(market) : { signal: "持股", color: "slate", reason: "尚無今日數據" };
+
       return {
         ...item,
-        currentPrice: market?.close_price || item.buy_price,
+        currentPrice,
         aiScore: market?.ai_score || 0,
-        returnPercent: (((market?.close_price || item.buy_price) - item.buy_price) / item.buy_price) * 100,
+        returnPercent: profitLossPercent,
+        localAnalysis,
         isWeak: (market?.ai_score || 0) < 60
       };
     });
 
     const alerts = portfolioDetails.filter(p => p.isWeak);
     return { topPick, portfolioDetails, alerts };
-  }, [state.data, state.portfolio]);
+  }, [state.data, state.portfolio, calculateTradeSignal]);
 
   if (!session) {
     return (
@@ -165,7 +184,7 @@ const App: React.FC = () => {
             </button>
           </form>
           <button onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')} className="w-full mt-8 text-slate-400 text-xs uppercase font-bold tracking-widest hover:text-slate-900 transition-colors">
-            {authMode === 'login' ? 'Request New Account' : 'Return to Login'}
+            {authMode === 'login' ? 'Register New account' : 'Return to Login'}
           </button>
         </div>
       </div>
@@ -186,9 +205,6 @@ const App: React.FC = () => {
             <h1 className="editorial-title italic font-black uppercase tracking-tighter">Command Center.</h1>
           </div>
           <div className="flex gap-4">
-             <button onClick={generateAiReport} className="flex items-center gap-3 px-6 py-4 border-2 border-slate-900 font-black text-xs uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">
-               <Sparkles size={18} /> AI 戰報
-             </button>
              <button onClick={loadData} className="p-4 border-2 border-slate-900 rounded-full hover:bg-slate-900 hover:text-white transition-all">
                <RefreshCw size={24} className={state.loading ? 'animate-spin' : ''} />
              </button>
@@ -198,7 +214,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Section A: AI Briefing */}
+        {/* Section A: AI Briefing & Alerts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-32">
           <div className="bg-slate-900 text-white p-10 lg:p-16 flex flex-col justify-between">
             <div>
@@ -208,30 +224,30 @@ const App: React.FC = () => {
                   <h2 className="text-6xl lg:text-8xl font-black italic tracking-tighter mb-4">{decisionMatrix.topPick.stock_name}</h2>
                   <div className="text-2xl lg:text-3xl font-black text-emerald-400 mb-8 italic uppercase">強力買進 (Strong Buy)</div>
                   <p className="text-slate-400 text-lg lg:text-xl leading-relaxed italic max-w-md">
-                    「{decisionMatrix.topPick.stock_name} 目前 AI 評分高達 {decisionMatrix.topPick.ai_score} 分。技術面與基本面達成罕見共振。」
+                    「{decisionMatrix.topPick.stock_name} 通過量化引擎篩選，評分達 {decisionMatrix.topPick.ai_score}。基本面與技術面共振明顯。」
                   </p>
                 </>
               ) : <div className="animate-pulse text-slate-700">SCANNING...</div>}
             </div>
             <div className="mt-12 flex items-center gap-8">
                <div className="flex flex-col">
-                  <span className="mono-text text-[9px] text-slate-500 uppercase">Entry Quote</span>
+                  <span className="mono-text text-[9px] text-slate-500 uppercase">Latest Quote</span>
                   <span className="text-3xl font-black">${decisionMatrix.topPick?.close_price}</span>
                </div>
-               <button onClick={() => decisionMatrix.topPick && setSelectedStock(decisionMatrix.topPick)} className="px-8 py-4 bg-white text-slate-900 font-black text-xs uppercase tracking-widest hover:bg-emerald-400 transition-all">Analysis</button>
+               <button onClick={() => decisionMatrix.topPick && setSelectedStock(decisionMatrix.topPick)} className="px-8 py-4 bg-white text-slate-900 font-black text-xs uppercase tracking-widest hover:bg-emerald-400 transition-all">Deep Analysis</button>
             </div>
           </div>
 
           <div className="border-[6px] border-slate-900 p-10 lg:p-16 flex flex-col">
-            <div className="mono-text text-[10px] uppercase text-slate-400 font-black mb-8 tracking-[0.4em]">持股警報 / PORTFOLIO ALERT</div>
+            <div className="mono-text text-[10px] uppercase text-slate-400 font-black mb-8 tracking-[0.4em]">庫存警戒 / PORTFOLIO ALERTS</div>
             <div className="space-y-8 flex-1">
               {decisionMatrix.alerts.length > 0 ? (
                 decisionMatrix.alerts.map(alert => (
-                  <div key={alert.id} className="flex items-start gap-6 group">
+                  <div key={alert.id} className="flex items-start gap-6 group border-b border-slate-100 pb-6 last:border-0">
                     <div className="p-4 bg-rose-500 text-white"><ShieldAlert size={32} /></div>
                     <div>
                       <h4 className="text-3xl font-black italic uppercase tracking-tighter">{alert.stock_name}</h4>
-                      <p className="text-rose-600 font-bold italic mt-2 uppercase tracking-tighter">AI 評分破底 ({alert.aiScore})：建議立即清倉。</p>
+                      <p className="text-rose-600 font-bold italic mt-2 uppercase">趨勢破壞 (Rating: {alert.aiScore})：建議立即退場。</p>
                     </div>
                   </div>
                 ))
@@ -239,8 +255,8 @@ const App: React.FC = () => {
                 <div className="flex items-center gap-6 py-12">
                   <div className="p-4 bg-emerald-500 text-white"><CheckCircle2 size={32} /></div>
                   <div>
-                    <h4 className="text-3xl font-black italic uppercase tracking-tighter">All Systems Clear.</h4>
-                    <p className="text-slate-400 font-bold italic mt-2 uppercase tracking-tighter">當前庫存結構健康，無需進行防禦性減碼。</p>
+                    <h4 className="text-3xl font-black italic uppercase tracking-tighter">Status: Secure.</h4>
+                    <p className="text-slate-400 font-bold italic mt-2 uppercase tracking-tighter">持股評分均在合理區間，無須調整。</p>
                   </div>
                 </div>
               )}
@@ -256,23 +272,30 @@ const App: React.FC = () => {
           </div>
           {activeView === 'portfolio' && (
             <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-3 text-xs font-black uppercase tracking-widest hover:text-rose-500 transition-all">
-              <Plus size={16} /> Add Position
+              <Plus size={16} /> Register Asset
             </button>
           )}
         </div>
 
         <div className="flex flex-col">
           {activeView === 'daily' ? (
-            state.data.map(stock => (
-              <ActionCard key={stock.id} stock={stock} onSelect={() => setSelectedStock(stock)} />
-            ))
+            state.data.map(stock => {
+              const quantAnalysis = calculateTradeSignal(stock);
+              return (
+                <ActionCard 
+                  key={stock.id} 
+                  stock={{...stock, ai_suggestion: quantAnalysis.reason}} 
+                  onSelect={() => setSelectedStock(stock)} 
+                />
+              )
+            })
           ) : (
             decisionMatrix.portfolioDetails.map(item => {
               const market = state.data.find(d => d.stock_code === item.stock_code) || ({} as DailyAnalysis);
               return (
                 <div key={item.id} className="relative group">
                   <ActionCard 
-                    stock={{...market, stock_name: item.stock_name, stock_code: item.stock_code, ai_score: item.aiScore}} 
+                    stock={{...market, stock_name: item.stock_name, stock_code: item.stock_code, ai_score: item.aiScore, ai_suggestion: item.localAnalysis.reason}} 
                     isPortfolio 
                     returnPercent={item.returnPercent}
                     buyPrice={item.buy_price}
@@ -288,41 +311,12 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* AI Report Modal */}
-      {isReportModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-2xl">
-          <div className="w-full max-w-3xl bg-white p-12 lg:p-20 relative shadow-2xl animate-in fade-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto">
-            <button onClick={() => setIsReportModalOpen(false)} className="absolute top-10 right-10 p-2 hover:bg-slate-100 rounded-full"><X size={24}/></button>
-            <div className="mono-text text-rose-500 text-xs font-black uppercase mb-12 tracking-widest flex items-center gap-3">
-               <Sparkles size={16}/> 首席策略官簡報 / Morning Briefing
-            </div>
-            {isAiLoading ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-6">
-                <Loader2 size={48} className="animate-spin text-slate-200" />
-                <p className="mono-text text-xs uppercase font-black text-slate-400">正在同步全球市場數據並生成洞察...</p>
-              </div>
-            ) : (
-              <div className="prose prose-slate max-w-none">
-                <div className="mb-12"><Quote size={40} className="text-slate-100 fill-slate-100 mb-4" /></div>
-                <div className="text-xl lg:text-2xl font-medium italic text-slate-800 leading-relaxed whitespace-pre-wrap font-serif">
-                  {aiReport}
-                </div>
-                <div className="mt-16 border-t-4 border-slate-900 pt-8 flex justify-between items-center">
-                   <div className="mono-text text-[10px] uppercase font-black tracking-widest text-slate-400">Generated on: {format(new Date(), 'yyyy/MM/dd HH:mm')}</div>
-                   <button onClick={() => setIsReportModalOpen(false)} className="px-10 py-4 bg-slate-900 text-white font-black uppercase text-xs tracking-widest hover:bg-rose-500 transition-all">Dismiss</button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Existing Modals (Add Position & Detail) Logic... */}
+      {/* Modal: Add Position */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-sm">
           <div className="w-full max-w-md bg-white p-12 relative shadow-2xl animate-in zoom-in-95 duration-200">
              <div className="flex justify-between items-center mb-12">
-                <h2 className="text-4xl font-black italic uppercase tracking-tighter">Register Asset.</h2>
+                <h2 className="text-4xl font-black italic uppercase tracking-tighter">New Asset.</h2>
                 <button onClick={() => setIsAddModalOpen(false)}><X size={24}/></button>
              </div>
              <div className="space-y-8">
@@ -336,11 +330,11 @@ const App: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-8">
                    <div className="space-y-2">
-                    <label className="mono-text text-[10px] font-black uppercase text-slate-400">Cost Basis</label>
+                    <label className="mono-text text-[10px] font-black uppercase text-slate-400">Entry Price</label>
                     <input type="number" placeholder="0.0" className="w-full border-b-2 border-slate-900 py-3 text-2xl font-black outline-none bg-transparent" value={newHolding.price} onChange={e => setNewHolding({...newHolding, price: e.target.value})} />
                    </div>
                    <div className="space-y-2">
-                    <label className="mono-text text-[10px] font-black uppercase text-slate-400">Volume</label>
+                    <label className="mono-text text-[10px] font-black uppercase text-slate-400">Quantity</label>
                     <input type="number" placeholder="1000" className="w-full border-b-2 border-slate-900 py-3 text-2xl font-black outline-none bg-transparent" value={newHolding.qty} onChange={e => setNewHolding({...newHolding, qty: e.target.value})} />
                    </div>
                 </div>
@@ -349,35 +343,68 @@ const App: React.FC = () => {
                   await addToPortfolio(newHolding.code, newHolding.name, Number(newHolding.price), Number(newHolding.qty));
                   setIsAddModalOpen(false);
                   loadData();
-                }} className="w-full py-6 bg-slate-900 text-white font-black uppercase tracking-widest hover:bg-emerald-500 transition-all">Confirm Execution</button>
+                }} className="w-full py-6 bg-slate-900 text-white font-black uppercase tracking-widest hover:bg-emerald-500 transition-all">Confirm Asset</button>
              </div>
           </div>
         </div>
       )}
 
+      {/* Modal: Detailed Analysis & AI Insight */}
       {selectedStock && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-0 lg:p-6 bg-slate-900/60 backdrop-blur-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-0 lg:p-6 bg-slate-900/60 backdrop-blur-xl overflow-y-auto">
            <div className="w-full max-w-4xl bg-white p-10 lg:p-20 relative shadow-2xl animate-in fade-in zoom-in-95 duration-300 my-8">
              <button onClick={() => setSelectedStock(null)} className="absolute top-10 right-10 p-3 hover:bg-slate-100 rounded-full transition-all"><X size={24}/></button>
              <div className="mono-text text-rose-500 text-xs font-black uppercase mb-12 tracking-widest italic">Confidential Alpha Report</div>
+             
              <div className="flex flex-col lg:flex-row lg:items-baseline gap-6 mb-12">
                <h2 className="text-6xl lg:text-9xl font-black italic tracking-tighter uppercase">{selectedStock.stock_name}</h2>
                <span className="text-3xl font-bold text-slate-300 italic">{selectedStock.stock_code}</span>
              </div>
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 mb-12">
                <div className="space-y-8">
                  <div className="p-8 bg-slate-50 border-l-4 border-slate-900">
-                   <div className="mono-text text-[10px] uppercase font-black mb-4 opacity-50">Strategic Logic</div>
-                   <div className="text-2xl font-black italic">AI 建議：{selectedStock.ai_score && selectedStock.ai_score >= 85 ? "執行強烈買進" : "持續觀望"}</div>
+                   <div className="mono-text text-[10px] uppercase font-black mb-4 opacity-50">Local Quant Signal</div>
+                   <div className="text-2xl font-black italic">
+                     {calculateTradeSignal(selectedStock).reason}
+                   </div>
                  </div>
-                 <p className="text-xl lg:text-2xl text-slate-700 leading-relaxed font-medium italic">「{selectedStock.stock_name} 的 ROE ({selectedStock.roe}%) 表現極佳，且技術面上呈現出『{selectedStock.technical_signal}』。此為高度確定性之訊號。」</p>
+                 
+                 <div className="grid grid-cols-2 gap-8">
+                    <div className="p-6 border border-slate-100">
+                      <div className="mono-text text-[10px] uppercase font-black mb-2 opacity-50">ROE</div>
+                      <div className="text-4xl font-black italic">{selectedStock.roe}%</div>
+                    </div>
+                    <div className="p-6 border border-slate-100">
+                      <div className="mono-text text-[10px] uppercase font-black mb-2 opacity-50">AI Score</div>
+                      <div className="text-4xl font-black italic">{selectedStock.ai_score}</div>
+                    </div>
+                 </div>
                </div>
-               <div className="grid grid-cols-2 gap-8 h-fit">
-                  <div className="p-6 border border-slate-100">
-                    <div className="mono-text text-[10px] uppercase font-black mb-2 opacity-50">AI Score</div>
-                    <div className="text-4xl font-black italic">{selectedStock.ai_score}</div>
+
+               <div className="flex flex-col h-full justify-between">
+                  <div className="bg-slate-900 text-white p-8 mb-8 flex-1">
+                    <div className="flex items-center gap-2 mb-6">
+                      <Sparkles size={16} className="text-emerald-400" />
+                      <span className="mono-text text-[10px] uppercase font-black tracking-widest">AI Deep Insight</span>
+                    </div>
+                    {isAiLoading ? (
+                      <div className="flex flex-col items-center justify-center h-40">
+                         <Loader2 className="animate-spin text-slate-500 mb-4" />
+                         <span className="text-xs uppercase mono-text opacity-50">Synthesizing Data...</span>
+                      </div>
+                    ) : aiReport ? (
+                      <div className="text-sm lg:text-base italic leading-relaxed whitespace-pre-wrap text-slate-300">
+                        {aiReport}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-40 border border-dashed border-slate-700">
+                        <p className="text-xs italic text-slate-500 mb-4">點擊下方按鈕啟動 Gemini 3 分析模型</p>
+                        <button onClick={() => handleDeepAnalysis(selectedStock)} className="px-6 py-3 bg-white text-slate-900 font-black text-[10px] uppercase tracking-widest hover:bg-emerald-400 transition-all">啟動 AI 深度報告</button>
+                      </div>
+                    )}
                   </div>
-                  <button onClick={() => setSelectedStock(null)} className="col-span-2 py-6 bg-slate-900 text-white font-black uppercase tracking-widest hover:bg-rose-500 transition-all">Dismiss</button>
+                  <button onClick={() => setSelectedStock(null)} className="w-full py-6 bg-slate-900 text-white font-black uppercase tracking-widest hover:bg-rose-500 transition-all">Dismiss Terminal</button>
                </div>
              </div>
            </div>

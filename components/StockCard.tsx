@@ -15,49 +15,36 @@ interface ActionCardProps {
 export const ActionCard: React.FC<ActionCardProps> = ({ 
   stock, 
   isPortfolio, 
-  unrealizedPL, 
   returnPercent = 0, 
   buyPrice, 
   onSelect 
 }) => {
   const score = stock.ai_score || 0;
   
-  // 決策邏輯
-  let signal = "HOLD";
+  // 決定視覺狀態
+  let signalText = "HOLD";
   let signalColor = "text-slate-400";
   let bgColor = "bg-slate-50";
   let pulsing = false;
   let textColor = "text-slate-900";
 
   if (score >= 85) {
-    signal = "STRONG BUY";
-    signalColor = "text-white";
-    bgColor = "bg-emerald-500";
+    signalText = "STRONG BUY";
+    signalColor = "text-emerald-500";
+    bgColor = "bg-emerald-50/50 border border-emerald-100";
     pulsing = true;
-    textColor = "text-white";
-  } else if (score >= 75) {
-    signal = "BUY";
-    signalColor = "text-emerald-600";
-    bgColor = "bg-emerald-50 border-emerald-100 border";
   } else if (score < 60) {
-    signal = isPortfolio ? "SELL ALERT" : "AVOID";
-    signalColor = isPortfolio ? "text-white" : "text-rose-600 font-black";
-    // 如果是庫存股且評分過低，啟動「全紅警戒」
-    bgColor = isPortfolio ? "bg-rose-500" : "bg-rose-50 border-rose-100 border";
+    signalText = isPortfolio ? "SELL ALERT" : "AVOID";
+    signalColor = isPortfolio ? "text-white" : "text-rose-600";
+    bgColor = isPortfolio ? "bg-rose-500" : "bg-rose-50 border border-rose-100";
     textColor = isPortfolio ? "text-white" : "text-slate-900";
     pulsing = isPortfolio;
   }
 
-  const getAiReason = (s: DailyAnalysis) => {
-    if (s.ai_score && s.ai_score >= 85) return "強勢多頭特徵，法人資金持續湧入，建議加碼。";
-    if (s.ai_score && s.ai_score < 60) return "AI 模型偵測到趨勢反轉，籌碼面出現鬆動跡象。";
-    return "走勢平穩，目前處於盤整區間，適合持續觀察。";
-  };
-
   return (
     <div 
       onClick={onSelect}
-      className={`group relative flex flex-col lg:flex-row items-center justify-between p-6 lg:p-10 transition-all cursor-pointer mb-4 ${bgColor} ${pulsing ? 'animate-pulse' : ''} hover:scale-[1.01] hover:shadow-xl`}
+      className={`group relative flex flex-col lg:flex-row items-center justify-between p-6 lg:p-10 transition-all cursor-pointer mb-4 ${bgColor} ${pulsing ? 'animate-pulse' : ''} hover:scale-[1.01] hover:shadow-xl rounded-sm`}
     >
       {/* 左：名稱與代碼 */}
       <div className="flex items-center gap-6 w-full lg:w-1/4">
@@ -74,32 +61,30 @@ export const ActionCard: React.FC<ActionCardProps> = ({
         </div>
       </div>
 
-      {/* 中：AI 信號 */}
+      {/* 中：AI 評分與標籤 */}
       <div className={`w-full lg:w-1/4 flex flex-col items-center py-4 lg:py-0`}>
-        <span className={`text-2xl lg:text-3xl font-black italic tracking-tighter ${signalColor}`}>
-          {signal}
+        <span className={`text-2xl lg:text-3xl font-black italic tracking-tighter uppercase ${signalColor}`}>
+          {signalText}
         </span>
         <div className={`mono-text text-[9px] uppercase font-bold tracking-[0.2em] opacity-50 ${textColor}`}>
-          AI Rating: {score}
+          AI Index: {score}
         </div>
       </div>
 
-      {/* 右：理由（動態變色） */}
+      {/* 右：本地量化建議 (這就是那個防呆理由) */}
       <div className="w-full lg:w-1/3 flex flex-col">
         <p className={`text-sm lg:text-base font-medium leading-relaxed italic border-l-2 pl-4 ${isPortfolio && score < 60 ? 'text-rose-100 border-rose-300' : 'text-slate-600 border-slate-200'}`}>
-          「{getAiReason(stock)}」
+          「{stock.ai_suggestion}」
         </p>
       </div>
 
-      {/* 數據區：強化 P/L 呈現 */}
+      {/* 數據區：P/L 呈現 */}
       <div className="w-full lg:w-auto mt-4 lg:mt-0 lg:ml-6 flex items-center justify-end gap-8">
         {isPortfolio ? (
           <div className="flex gap-8 items-center">
             <div className="text-right">
-              <div className={`mono-text text-[9px] uppercase ${score < 60 ? 'text-rose-200' : 'text-slate-400'}`}>Basis vs Now</div>
-              <div className={`text-lg font-bold ${textColor}`}>
-                ${buyPrice} → ${stock.close_price}
-              </div>
+              <div className={`mono-text text-[9px] uppercase ${score < 60 ? 'text-rose-200' : 'text-slate-400'}`}>Entry</div>
+              <div className={`text-lg font-bold ${textColor}`}>${buyPrice}</div>
             </div>
             <div className="text-right">
               <div className={`mono-text text-[9px] uppercase ${score < 60 ? 'text-rose-200' : 'text-slate-400'}`}>Return</div>
@@ -111,7 +96,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({
           </div>
         ) : (
           <div className="text-right">
-            <div className="mono-text text-[9px] uppercase text-slate-400">Target Entry</div>
+            <div className="mono-text text-[9px] uppercase text-slate-400">Current Quote</div>
             <div className="text-2xl font-black text-slate-900">${stock.close_price}</div>
           </div>
         )}
