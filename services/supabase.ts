@@ -4,7 +4,7 @@ import { DailyAnalysis, PortfolioItem } from '../types';
 
 /**
  * 核心連線設定 (SaaS 部署最佳實踐)
- * 優先從環境變數讀取，確保 Vercel 部署安全性，並保留開發時的備用字串
+ * 優先從環境變數讀取，確保 Vercel 部署安全性。
  */
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zfkwzbupyvrrthuowchc.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_wtSso_NL3o6j69XDmfeyvg_Hqs1w2i5';
@@ -47,7 +47,7 @@ export const fetchDailyAnalysis = async (): Promise<DailyAnalysis[]> => {
     const result = (data as any[]) || [];
     
     // 資料富化 (Data Enrichment)
-    // 若資料庫欄位缺失，則在前端補足模擬數據，確保 CEO Mode 展示完整
+    // 若資料庫欄位缺失，則在前端補足模擬數據，確保 CEO Mode 展示完整性
     return result.map(item => ({
       ...item,
       roe: item.roe ?? Math.floor(Math.random() * 20) + 5,
@@ -83,29 +83,23 @@ export const fetchPortfolio = async (): Promise<PortfolioItem[]> => {
 
 /**
  * 新增至個人庫存
- * @param code 股票代號 (如 2330)
- * @param name 股票名稱
- * @param price 買入成本
- * @param qty 持有股數
  */
-export const addToPortfolio = async (code: string, name: string, price: number, qty: number): Promise<void> => {
-  // 1. 安全性檢查：確保使用者已登入
+export const addToPortfolio = async (stockCode: string, stockName: string, price: number, qty: number): Promise<void> => {
+  // 取得當前使用者 ID (安全性關鍵)
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated");
 
-  // 2. 格式標準化：確保代號包含 .TW
-  const normalizedCode = code.toUpperCase().endsWith('.TW') ? code.toUpperCase() : `${code.toUpperCase()}.TW`;
+  const formattedCode = stockCode.toUpperCase().includes('.TW') ? stockCode.toUpperCase() : `${stockCode.toUpperCase()}.TW`;
   
-  // 3. 寫入資料庫：明確帶入 user_id 供 RLS 驗證
   const { error } = await supabase
     .from('portfolio')
-    .insert([{
-      stock_code: normalizedCode,
-      stock_name: name,
-      buy_price: price,
+    .insert([{ 
+      stock_code: formattedCode, 
+      stock_name: stockName,
+      buy_price: price, 
       quantity: qty,
       status: 'holding',
-      user_id: user.id 
+      user_id: user.id // 綁定使用者 ID
     }]);
 
   if (error) {
@@ -116,9 +110,8 @@ export const addToPortfolio = async (code: string, name: string, price: number, 
 
 /**
  * 刪除庫存項目
- * @param id 項目唯一識別 ID
  */
-export const deleteFromPortfolio = async (id: string): Promise<void> => {
+export const deleteFromPortfolio = async (id: string | number): Promise<void> => {
   const { error } = await supabase
     .from('portfolio')
     .delete()
