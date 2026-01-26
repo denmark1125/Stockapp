@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ShieldCheck, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
+import { ShieldCheck, TrendingUp, TrendingDown, ArrowRight, AlertTriangle } from 'lucide-react';
 import { DailyAnalysis } from '../types';
 
 interface ActionCardProps {
@@ -10,6 +10,7 @@ interface ActionCardProps {
     color: 'emerald' | 'rose' | 'slate';
     reason: string;
     isAlert: boolean;
+    isAnomaly: boolean;
   };
   isPortfolio?: boolean;
   unrealizedPL?: number;
@@ -28,17 +29,16 @@ export const ActionCard: React.FC<ActionCardProps> = ({
 }) => {
   const roe = stock.roe || 0;
   
-  // 依照傳入的 quant.color 決定視覺風格
   const styleMap = {
     emerald: {
       signalColor: "text-emerald-500",
       bgColor: "bg-emerald-50/50 border border-emerald-100",
-      pulsing: !isPortfolio // 非庫存的高分股可以跳動吸引注意
+      pulsing: !isPortfolio 
     },
     rose: {
       signalColor: isPortfolio ? "text-white" : "text-rose-600",
       bgColor: isPortfolio ? "bg-rose-500" : "bg-rose-50 border border-rose-100",
-      pulsing: isPortfolio // 庫存警報必須跳動
+      pulsing: isPortfolio 
     },
     slate: {
       signalColor: "text-slate-400",
@@ -55,6 +55,13 @@ export const ActionCard: React.FC<ActionCardProps> = ({
       onClick={onSelect}
       className={`group relative flex flex-col lg:flex-row items-center justify-between p-6 lg:p-10 transition-all cursor-pointer mb-4 ${currentStyle.bgColor} ${currentStyle.pulsing ? 'animate-pulse' : ''} hover:scale-[1.01] hover:shadow-xl rounded-sm`}
     >
+      {/* 異常警告標籤 */}
+      {quant.isAnomaly && (
+        <div className="absolute -top-3 left-6 flex items-center gap-1 bg-amber-500 text-white text-[9px] font-black uppercase px-2 py-1 rounded-full shadow-lg z-10">
+          <AlertTriangle size={10} /> 數據異常警告
+        </div>
+      )}
+
       {/* 左：名稱與代碼 */}
       <div className="flex items-center gap-6 w-full lg:w-1/4">
         <div className="flex flex-col">
@@ -77,11 +84,11 @@ export const ActionCard: React.FC<ActionCardProps> = ({
           {quant.signal}
         </span>
         <div className={`mono-text text-[9px] uppercase font-bold tracking-[0.2em] opacity-50 ${textColor}`}>
-          AI Rating: {stock.ai_score || 0}
+          AI Index: {stock.ai_score || 0}
         </div>
       </div>
 
-      {/* 右：量化理由 (由父組件統一提供) */}
+      {/* 右：理由 */}
       <div className="w-full lg:w-1/3 flex flex-col">
         <p className={`text-sm lg:text-base font-medium leading-relaxed italic border-l-2 pl-4 ${isPortfolio && quant.color === 'rose' ? 'text-rose-100 border-rose-300' : 'text-slate-600 border-slate-200'}`}>
           「{quant.reason}」
