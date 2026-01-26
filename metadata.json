@@ -1,0 +1,5 @@
+{
+  "name": "Traffic Light Stock Dashboard",
+  "description": "A high-end financial dashboard that visualizes stock analysis data from Supabase with a modern dark-themed traffic light signaling system.",
+  "requestFramePermissions": []
+}
