@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   RefreshCw, X, Plus, ShieldAlert, CheckCircle2, ArrowRight, LogOut, Loader2,
-  FileText, Sparkles, Quote
+  Sparkles, Quote
 } from 'lucide-react';
 import { DashboardState, DailyAnalysis } from './types';
 import { fetchDailyAnalysis, fetchPortfolio, addToPortfolio, deleteFromPortfolio, supabase, signOut } from './services/supabase';
@@ -29,14 +29,14 @@ const App: React.FC = () => {
   const [newHolding, setNewHolding] = useState({ code: '', name: '', price: '', qty: '' });
   const [selectedStock, setSelectedStock] = useState<DailyAnalysis | null>(null);
 
-  // AI 深度報告狀態 (僅在點擊時觸發)
-  const [isAiAnalysisOpen, setIsAiAnalysisOpen] = useState(false);
+  // AI 狀態
   const [aiReport, setAiReport] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   /**
-   * 1. 本地量化演算法引擎 (Local Quant Engine)
-   * 這是決策的核心，不消耗 API 額度且邏輯嚴謹。
+   * 1. 核心量化演算法引擎 (Single Source of Truth)
+   * 集中管理所有訊號、顏色與理由，確保全站邏輯統一。
    */
   const calculateTradeSignal = useCallback((stock: DailyAnalysis) => {
     const score = stock.ai_score ?? 0;
@@ -44,34 +44,35 @@ const App: React.FC = () => {
     const growth = stock.revenue_growth ?? 0;
     const technical = stock.technical_signal || "";
     
+    // --- 嚴格邏輯防呆 (絕對禁止在 ROE <= 5 時稱讚獲利) ---
+    if (roe <= 5) {
+      if (score > 80) return { signal: "技術強基本弱", color: "slate" as const, reason: `獲利能力疲弱 (ROE ${roe}%)，目前的強勢可能源於短線籌碼炒作，建議謹慎。`, isAlert: false };
+      return { signal: "觀望", color: "slate" as const, reason: `獲利低於門檻 (ROE ${roe}%)，基本面支撐力道不足，不具長期投資價值。`, isAlert: false };
+    }
+
     // --- 賣出訊號 (Sell Logic) ---
-    if (score < 60) return { signal: "賣出", color: "rose", reason: "AI 總體評分不及格，趨勢極端疲弱，建議避開。" };
-    if (technical.includes("死亡交叉") || technical.includes("空頭")) return { signal: "技術轉弱", color: "rose", reason: "技術面出現空頭排列，短期下行壓力巨大。" };
-    if (growth < -20) return { signal: "基本面惡化", color: "rose", reason: "營收出現嚴重負成長，基本面支撐力道薄弱。" };
+    if (score < 60) return { signal: "建議賣出", color: "rose" as const, reason: "AI 總體評分不及格，趨勢指標轉弱，建議優先減碼避險。", isAlert: true };
+    if (technical.includes("死亡交叉") || growth < -20) return { signal: "基本面惡化", color: "rose" as const, reason: "技術面出現空頭排列且營收顯著衰退，下行風險增加。", isAlert: true };
 
     // --- 買進訊號 (Buy Logic) ---
-    if (score >= 85 && (technical.includes("多頭") || technical.includes("金叉"))) {
-      return { signal: "強力買進", color: "emerald", reason: `評分 (${score}) 與技術面完美契合，多頭動能強勁。` };
+    if (score >= 85 && roe > 15 && growth > 15) {
+      return { signal: "強力買進", color: "emerald" as const, reason: `成長動能極佳！ROE (${roe}%) 與營收同步成長，技術面呈現完美多頭。`, isAlert: false };
     }
-    if (roe > 15 && growth > 10) {
-      return { signal: "價值選股", color: "emerald", reason: `獲利能力優秀 (ROE: ${roe}%) 且營收持續增長。` };
+    if (roe > 20) {
+      return { signal: "績優選股", color: "emerald" as const, reason: `高獲利能力支撐 (ROE ${roe}%)，具備強大護城河，適合長期配置。`, isAlert: false };
     }
 
-    // --- 邏輯防呆與風險提示 (Guardrails) ---
-    if (roe <= 5) return { signal: "觀望", color: "slate", reason: "獲利能力疲弱 (ROE過低)，目前不具備長期投資價值。" };
-    if (score > 80 && growth < 0) return { signal: "小心假突破", color: "slate", reason: "技術面強勢但營收負成長，需留意高檔出貨風險。" };
-
-    return { signal: "中性/持股", color: "slate", reason: "走勢平穩，建議維持目前持股水位，持續觀察。" };
+    return { signal: "中性/持股", color: "slate" as const, reason: "目前表現平穩，未觸發極端買賣訊號，建議按既定計畫持股。", isAlert: false };
   }, []);
 
-  // 監聽 Auth
+  // Auth 監聽
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
     return () => subscription.unsubscribe();
   }, []);
 
-  // 載入資料
+  // 資料載入
   const loadData = useCallback(async () => {
     if (!session) return;
     setState(prev => ({ ...prev, loading: true }));
@@ -95,54 +96,44 @@ const App: React.FC = () => {
   useEffect(() => { if (session) loadData(); }, [session, loadData]);
 
   /**
-   * 2. 深度 AI 解讀 (Deep Insight)
-   * 僅在使用者點擊 Modal 時才呼叫 API，節省額度
+   * 2. AI 深度解讀功能
+   * 依照 Gemini 最新 SDK 規範調用
    */
-  const handleDeepAnalysis = async (stock: DailyAnalysis) => {
+  const handleAiInsight = async (stock: DailyAnalysis | DailyAnalysis[]) => {
     setIsAiLoading(true);
     setAiReport(null);
+    setIsReportModalOpen(true);
+    
     try {
+      // 依照規範使用 process.env.API_KEY
       const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API });
-      const prompt = `
-        請以資深分析師的身份，對股票「${stock.stock_name} (${stock.stock_code})」進行深度分析。
-        數據如下：ROE ${stock.roe}%, 營收成長 ${stock.revenue_growth}%, AI評分 ${stock.ai_score}, 技術面：${stock.technical_signal}。
-        請給出三點精確的洞察，最後給出具體的「執行策略」。使用繁體中文，格式請保持簡潔專業。
-      `;
-      const result = await ai.models.generateContent({
+      let prompt = "";
+
+      if (Array.isArray(stock)) {
+        // 生成今日戰報
+        const top5 = stock.slice(0, 5).map(s => `${s.stock_name} (ROE: ${s.roe}%, AI分數: ${s.ai_score})`).join(', ');
+        prompt = `你是首席投資分析師。根據今日前五名強勢股數據：${top5}，生成一份「CEO 晨間戰報」。內容需包含：1.今日市場主旋律。2.熱門產業洞察。3.具體的操作心法。請用繁體中文，語氣冷靜專業，排版如雜誌專欄。`;
+      } else {
+        // 單股深度解讀
+        prompt = `請深度分析股票「${stock.stock_name}」。關鍵數據：ROE ${stock.roe}%，營收成長率 ${stock.revenue_growth}%，AI 評分 ${stock.ai_score}。請給出 3 點極具專業價值的操作洞察，並明確給出策略建議。請用繁體中文。`;
+      }
+
+      const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
       });
-      setAiReport(result.text);
+
+      // 依照規範使用 .text 屬性 (不是方法)
+      setAiReport(response.text);
     } catch (err) {
-      setAiReport("分析引擎目前忙碌中，請稍後。");
+      console.error(err);
+      setAiReport("分析引擎目前忙碌中或金鑰設定有誤，請檢查環境變數。");
     } finally {
       setIsAiLoading(false);
     }
   };
 
-  // 3. 處理 Auth
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthLoading(true);
-    setAuthError('');
-    try {
-      if (authMode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        alert("註冊成功！");
-        setAuthMode('login');
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
-    } catch (err: any) {
-      setAuthError(err.message || "驗證失敗");
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  // 4. 決策矩陣運算 (包含損益計算)
+  // 3. 決策數據運算
   const decisionMatrix = useMemo(() => {
     const today = state.data;
     const topPick = today.length > 0 ? today.reduce((prev, curr) => (prev.ai_score! > curr.ai_score!) ? prev : curr) : null;
@@ -152,22 +143,42 @@ const App: React.FC = () => {
       const currentPrice = market?.close_price || item.buy_price;
       const profitLossPercent = ((currentPrice - item.buy_price) / item.buy_price) * 100;
       
-      // 使用量化引擎
-      const localAnalysis = market ? calculateTradeSignal(market) : { signal: "持股", color: "slate", reason: "尚無今日數據" };
+      // 使用統一量化引擎
+      const quant = market ? calculateTradeSignal(market) : { signal: "持股", color: "slate" as const, reason: "尚無今日數據", isAlert: false };
 
       return {
         ...item,
         currentPrice,
         aiScore: market?.ai_score || 0,
         returnPercent: profitLossPercent,
-        localAnalysis,
-        isWeak: (market?.ai_score || 0) < 60
+        quant,
+        isAlert: quant.isAlert
       };
     });
 
-    const alerts = portfolioDetails.filter(p => p.isWeak);
-    return { topPick, portfolioDetails, alerts };
+    return { topPick, portfolioDetails, alerts: portfolioDetails.filter(p => p.isAlert) };
   }, [state.data, state.portfolio, calculateTradeSignal]);
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError('');
+    try {
+      if (authMode === 'signup') {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        alert("註冊成功");
+        setAuthMode('login');
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
+    } catch (err: any) {
+      setAuthError(err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
   if (!session) {
     return (
@@ -183,9 +194,6 @@ const App: React.FC = () => {
               {authLoading ? <Loader2 className="animate-spin mx-auto"/> : (authMode === 'login' ? 'Authenticate' : 'Create Access')}
             </button>
           </form>
-          <button onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')} className="w-full mt-8 text-slate-400 text-xs uppercase font-bold tracking-widest hover:text-slate-900 transition-colors">
-            {authMode === 'login' ? 'Register New account' : 'Return to Login'}
-          </button>
         </div>
       </div>
     );
@@ -205,6 +213,9 @@ const App: React.FC = () => {
             <h1 className="editorial-title italic font-black uppercase tracking-tighter">Command Center.</h1>
           </div>
           <div className="flex gap-4">
+             <button onClick={() => handleAiInsight(state.data)} className="flex items-center gap-3 px-6 py-4 bg-slate-900 text-white font-black text-xs uppercase tracking-widest hover:bg-rose-500 transition-all">
+               <Sparkles size={18} /> 生成今日戰報
+             </button>
              <button onClick={loadData} className="p-4 border-2 border-slate-900 rounded-full hover:bg-slate-900 hover:text-white transition-all">
                <RefreshCw size={24} className={state.loading ? 'animate-spin' : ''} />
              </button>
@@ -214,7 +225,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Section A: AI Briefing & Alerts */}
+        {/* Section A: Dashboard Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-32">
           <div className="bg-slate-900 text-white p-10 lg:p-16 flex flex-col justify-between">
             <div>
@@ -224,22 +235,21 @@ const App: React.FC = () => {
                   <h2 className="text-6xl lg:text-8xl font-black italic tracking-tighter mb-4">{decisionMatrix.topPick.stock_name}</h2>
                   <div className="text-2xl lg:text-3xl font-black text-emerald-400 mb-8 italic uppercase">強力買進 (Strong Buy)</div>
                   <p className="text-slate-400 text-lg lg:text-xl leading-relaxed italic max-w-md">
-                    「{decisionMatrix.topPick.stock_name} 通過量化引擎篩選，評分達 {decisionMatrix.topPick.ai_score}。基本面與技術面共振明顯。」
+                    「{decisionMatrix.topPick.stock_name} ROE 指標卓越 ({decisionMatrix.topPick.roe}%)，配合高 AI 評分，是今日最強量化標的。」
                   </p>
                 </>
               ) : <div className="animate-pulse text-slate-700">SCANNING...</div>}
             </div>
             <div className="mt-12 flex items-center gap-8">
-               <div className="flex flex-col">
-                  <span className="mono-text text-[9px] text-slate-500 uppercase">Latest Quote</span>
-                  <span className="text-3xl font-black">${decisionMatrix.topPick?.close_price}</span>
-               </div>
-               <button onClick={() => decisionMatrix.topPick && setSelectedStock(decisionMatrix.topPick)} className="px-8 py-4 bg-white text-slate-900 font-black text-xs uppercase tracking-widest hover:bg-emerald-400 transition-all">Deep Analysis</button>
+               <button onClick={() => decisionMatrix.topPick && setSelectedStock(decisionMatrix.topPick)} className="px-8 py-4 bg-white text-slate-900 font-black text-xs uppercase tracking-widest hover:bg-emerald-400 transition-all">數據詳情</button>
+               <button onClick={() => decisionMatrix.topPick && handleAiInsight(decisionMatrix.topPick)} className="flex items-center gap-2 mono-text text-xs font-black uppercase tracking-widest hover:text-emerald-400">
+                 <Sparkles size={14} /> AI 深度解讀
+               </button>
             </div>
           </div>
 
           <div className="border-[6px] border-slate-900 p-10 lg:p-16 flex flex-col">
-            <div className="mono-text text-[10px] uppercase text-slate-400 font-black mb-8 tracking-[0.4em]">庫存警戒 / PORTFOLIO ALERTS</div>
+            <div className="mono-text text-[10px] uppercase text-slate-400 font-black mb-8 tracking-[0.4em]">庫存警戒 / ALERTS</div>
             <div className="space-y-8 flex-1">
               {decisionMatrix.alerts.length > 0 ? (
                 decisionMatrix.alerts.map(alert => (
@@ -247,17 +257,14 @@ const App: React.FC = () => {
                     <div className="p-4 bg-rose-500 text-white"><ShieldAlert size={32} /></div>
                     <div>
                       <h4 className="text-3xl font-black italic uppercase tracking-tighter">{alert.stock_name}</h4>
-                      <p className="text-rose-600 font-bold italic mt-2 uppercase">趨勢破壞 (Rating: {alert.aiScore})：建議立即退場。</p>
+                      <p className="text-rose-600 font-bold italic mt-2 uppercase">趨勢破壞：建議立即退場。</p>
                     </div>
                   </div>
                 ))
               ) : (
                 <div className="flex items-center gap-6 py-12">
                   <div className="p-4 bg-emerald-500 text-white"><CheckCircle2 size={32} /></div>
-                  <div>
-                    <h4 className="text-3xl font-black italic uppercase tracking-tighter">Status: Secure.</h4>
-                    <p className="text-slate-400 font-bold italic mt-2 uppercase tracking-tighter">持股評分均在合理區間，無須調整。</p>
-                  </div>
+                  <div className="text-3xl font-black italic uppercase tracking-tighter">Status: Secure.</div>
                 </div>
               )}
             </div>
@@ -267,12 +274,12 @@ const App: React.FC = () => {
         {/* Section B: Signal List */}
         <div className="flex items-center justify-between mb-12">
           <div className="flex items-center gap-12 mono-text text-xs font-black uppercase tracking-[0.2em]">
-             <button onClick={() => setActiveView('daily')} className={`pb-2 border-b-2 transition-all ${activeView === 'daily' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-300'}`}>Market Signals</button>
-             <button onClick={() => setActiveView('portfolio')} className={`pb-2 border-b-2 transition-all ${activeView === 'portfolio' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-300'}`}>My Portfolio</button>
+             <button onClick={() => setActiveView('daily')} className={`pb-2 border-b-2 transition-all ${activeView === 'daily' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-300'}`}>每日信號</button>
+             <button onClick={() => setActiveView('portfolio')} className={`pb-2 border-b-2 transition-all ${activeView === 'portfolio' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-300'}`}>我的庫存</button>
           </div>
           {activeView === 'portfolio' && (
             <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-3 text-xs font-black uppercase tracking-widest hover:text-rose-500 transition-all">
-              <Plus size={16} /> Register Asset
+              <Plus size={16} /> 登記持股
             </button>
           )}
         </div>
@@ -280,11 +287,12 @@ const App: React.FC = () => {
         <div className="flex flex-col">
           {activeView === 'daily' ? (
             state.data.map(stock => {
-              const quantAnalysis = calculateTradeSignal(stock);
+              const quant = calculateTradeSignal(stock);
               return (
                 <ActionCard 
                   key={stock.id} 
-                  stock={{...stock, ai_suggestion: quantAnalysis.reason}} 
+                  stock={stock}
+                  quant={quant}
                   onSelect={() => setSelectedStock(stock)} 
                 />
               )
@@ -295,11 +303,12 @@ const App: React.FC = () => {
               return (
                 <div key={item.id} className="relative group">
                   <ActionCard 
-                    stock={{...market, stock_name: item.stock_name, stock_code: item.stock_code, ai_score: item.aiScore, ai_suggestion: item.localAnalysis.reason}} 
+                    stock={{...market, stock_name: item.stock_name, stock_code: item.stock_code}} 
+                    quant={item.quant}
                     isPortfolio 
                     returnPercent={item.returnPercent}
                     buyPrice={item.buy_price}
-                    onSelect={() => setSelectedStock({...market, stock_name: item.stock_name, stock_code: item.stock_code, ai_score: item.aiScore})}
+                    onSelect={() => setSelectedStock({...market, stock_name: item.stock_name, stock_code: item.stock_code})}
                   />
                   <button onClick={(e) => { e.stopPropagation(); deleteFromPortfolio(item.id).then(loadData); }} className="absolute top-4 right-4 p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all">
                     <X size={20} />
@@ -311,100 +320,96 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal: Add Position */}
+      {/* AI Report Modal */}
+      {isReportModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-2xl">
+          <div className="w-full max-w-3xl bg-white p-12 lg:p-20 relative shadow-2xl animate-in fade-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto">
+            <button onClick={() => setIsReportModalOpen(false)} className="absolute top-10 right-10 p-2 hover:bg-slate-100 rounded-full"><X size={24}/></button>
+            <div className="mono-text text-rose-500 text-xs font-black uppercase mb-12 tracking-widest flex items-center gap-3">
+               <Sparkles size={16}/> 首席策略官簡報
+            </div>
+            {isAiLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-6">
+                <Loader2 size={48} className="animate-spin text-slate-200" />
+                <p className="mono-text text-xs uppercase font-black text-slate-400">正在生成深度洞察...</p>
+              </div>
+            ) : (
+              <div className="prose prose-slate max-w-none">
+                <Quote size={40} className="text-slate-100 fill-slate-100 mb-4" />
+                <div className="text-xl lg:text-2xl font-medium italic text-slate-800 leading-relaxed whitespace-pre-wrap font-serif">
+                  {aiReport}
+                </div>
+                <div className="mt-16 border-t pt-8 flex justify-end">
+                   <button onClick={() => setIsReportModalOpen(false)} className="px-10 py-4 bg-slate-900 text-white font-black uppercase text-xs tracking-widest hover:bg-rose-500 transition-all">關閉簡報</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Add Position Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-sm">
           <div className="w-full max-w-md bg-white p-12 relative shadow-2xl animate-in zoom-in-95 duration-200">
              <div className="flex justify-between items-center mb-12">
-                <h2 className="text-4xl font-black italic uppercase tracking-tighter">New Asset.</h2>
+                <h2 className="text-4xl font-black italic uppercase tracking-tighter">登記資產.</h2>
                 <button onClick={() => setIsAddModalOpen(false)}><X size={24}/></button>
              </div>
              <div className="space-y-8">
-                <div className="space-y-2">
-                  <label className="mono-text text-[10px] font-black uppercase text-slate-400">Stock Code</label>
-                  <input type="text" placeholder="e.g. 2330" className="w-full border-b-2 border-slate-900 py-3 text-2xl font-black outline-none bg-transparent" value={newHolding.code} onChange={e => setNewHolding({...newHolding, code: e.target.value})} />
-                </div>
-                <div className="space-y-2">
-                  <label className="mono-text text-[10px] font-black uppercase text-slate-400">Display Name</label>
-                  <input type="text" placeholder="台積電" className="w-full border-b-2 border-slate-900 py-3 text-2xl font-black outline-none bg-transparent" value={newHolding.name} onChange={e => setNewHolding({...newHolding, name: e.target.value})} />
-                </div>
+                <input type="text" placeholder="代碼 (e.g. 2330)" className="w-full border-b-2 border-slate-900 py-3 text-2xl font-black outline-none bg-transparent" value={newHolding.code} onChange={e => setNewHolding({...newHolding, code: e.target.value})} />
+                <input type="text" placeholder="名稱" className="w-full border-b-2 border-slate-900 py-3 text-2xl font-black outline-none bg-transparent" value={newHolding.name} onChange={e => setNewHolding({...newHolding, name: e.target.value})} />
                 <div className="grid grid-cols-2 gap-8">
-                   <div className="space-y-2">
-                    <label className="mono-text text-[10px] font-black uppercase text-slate-400">Entry Price</label>
-                    <input type="number" placeholder="0.0" className="w-full border-b-2 border-slate-900 py-3 text-2xl font-black outline-none bg-transparent" value={newHolding.price} onChange={e => setNewHolding({...newHolding, price: e.target.value})} />
-                   </div>
-                   <div className="space-y-2">
-                    <label className="mono-text text-[10px] font-black uppercase text-slate-400">Quantity</label>
-                    <input type="number" placeholder="1000" className="w-full border-b-2 border-slate-900 py-3 text-2xl font-black outline-none bg-transparent" value={newHolding.qty} onChange={e => setNewHolding({...newHolding, qty: e.target.value})} />
-                   </div>
+                    <input type="number" placeholder="成本價" className="w-full border-b-2 border-slate-900 py-3 text-2xl font-black outline-none bg-transparent" value={newHolding.price} onChange={e => setNewHolding({...newHolding, price: e.target.value})} />
+                    <input type="number" placeholder="股數" className="w-full border-b-2 border-slate-900 py-3 text-2xl font-black outline-none bg-transparent" value={newHolding.qty} onChange={e => setNewHolding({...newHolding, qty: e.target.value})} />
                 </div>
                 <button onClick={async () => {
                   if (!newHolding.code || !newHolding.name) return;
                   await addToPortfolio(newHolding.code, newHolding.name, Number(newHolding.price), Number(newHolding.qty));
                   setIsAddModalOpen(false);
                   loadData();
-                }} className="w-full py-6 bg-slate-900 text-white font-black uppercase tracking-widest hover:bg-emerald-500 transition-all">Confirm Asset</button>
+                }} className="w-full py-6 bg-slate-900 text-white font-black uppercase tracking-widest hover:bg-emerald-500 transition-all">確認加入</button>
              </div>
           </div>
         </div>
       )}
 
-      {/* Modal: Detailed Analysis & AI Insight */}
+      {/* Detail Modal */}
       {selectedStock && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-0 lg:p-6 bg-slate-900/60 backdrop-blur-xl overflow-y-auto">
            <div className="w-full max-w-4xl bg-white p-10 lg:p-20 relative shadow-2xl animate-in fade-in zoom-in-95 duration-300 my-8">
              <button onClick={() => setSelectedStock(null)} className="absolute top-10 right-10 p-3 hover:bg-slate-100 rounded-full transition-all"><X size={24}/></button>
-             <div className="mono-text text-rose-500 text-xs font-black uppercase mb-12 tracking-widest italic">Confidential Alpha Report</div>
-             
              <div className="flex flex-col lg:flex-row lg:items-baseline gap-6 mb-12">
                <h2 className="text-6xl lg:text-9xl font-black italic tracking-tighter uppercase">{selectedStock.stock_name}</h2>
                <span className="text-3xl font-bold text-slate-300 italic">{selectedStock.stock_code}</span>
              </div>
-
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 mb-12">
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
                <div className="space-y-8">
                  <div className="p-8 bg-slate-50 border-l-4 border-slate-900">
-                   <div className="mono-text text-[10px] uppercase font-black mb-4 opacity-50">Local Quant Signal</div>
-                   <div className="text-2xl font-black italic">
-                     {calculateTradeSignal(selectedStock).reason}
-                   </div>
+                   <div className="mono-text text-[10px] uppercase font-black mb-4 opacity-50">本地量化訊號</div>
+                   <div className="text-2xl font-black italic">{calculateTradeSignal(selectedStock).reason}</div>
                  </div>
-                 
                  <div className="grid grid-cols-2 gap-8">
                     <div className="p-6 border border-slate-100">
-                      <div className="mono-text text-[10px] uppercase font-black mb-2 opacity-50">ROE</div>
+                      <div className="mono-text text-[10px] uppercase font-black mb-2 opacity-50">ROE 指數</div>
                       <div className="text-4xl font-black italic">{selectedStock.roe}%</div>
                     </div>
                     <div className="p-6 border border-slate-100">
-                      <div className="mono-text text-[10px] uppercase font-black mb-2 opacity-50">AI Score</div>
+                      <div className="mono-text text-[10px] uppercase font-black mb-2 opacity-50">AI 評分</div>
                       <div className="text-4xl font-black italic">{selectedStock.ai_score}</div>
                     </div>
                  </div>
                </div>
-
                <div className="flex flex-col h-full justify-between">
-                  <div className="bg-slate-900 text-white p-8 mb-8 flex-1">
+                  <div className="bg-slate-900 text-white p-8 mb-8 border border-slate-700">
                     <div className="flex items-center gap-2 mb-6">
                       <Sparkles size={16} className="text-emerald-400" />
-                      <span className="mono-text text-[10px] uppercase font-black tracking-widest">AI Deep Insight</span>
+                      <span className="mono-text text-[10px] uppercase font-black tracking-widest">AI 分析官推薦</span>
                     </div>
-                    {isAiLoading ? (
-                      <div className="flex flex-col items-center justify-center h-40">
-                         <Loader2 className="animate-spin text-slate-500 mb-4" />
-                         <span className="text-xs uppercase mono-text opacity-50">Synthesizing Data...</span>
-                      </div>
-                    ) : aiReport ? (
-                      <div className="text-sm lg:text-base italic leading-relaxed whitespace-pre-wrap text-slate-300">
-                        {aiReport}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-40 border border-dashed border-slate-700">
-                        <p className="text-xs italic text-slate-500 mb-4">點擊下方按鈕啟動 Gemini 3 分析模型</p>
-                        <button onClick={() => handleDeepAnalysis(selectedStock)} className="px-6 py-3 bg-white text-slate-900 font-black text-[10px] uppercase tracking-widest hover:bg-emerald-400 transition-all">啟動 AI 深度報告</button>
-                      </div>
-                    )}
+                    <p className="text-sm italic leading-relaxed text-slate-400">獲取 Gemini 3 模型的深度策略報告，包含買賣點位與未來展望。</p>
+                    <button onClick={() => handleAiInsight(selectedStock)} className="mt-8 px-6 py-3 bg-white text-slate-900 font-black text-[10px] uppercase tracking-widest hover:bg-emerald-400 transition-all">獲取深度分析</button>
                   </div>
-                  <button onClick={() => setSelectedStock(null)} className="w-full py-6 bg-slate-900 text-white font-black uppercase tracking-widest hover:bg-rose-500 transition-all">Dismiss Terminal</button>
+                  <button onClick={() => setSelectedStock(null)} className="w-full py-6 bg-slate-900 text-white font-black uppercase tracking-widest hover:bg-rose-500 transition-all">關閉視窗</button>
                </div>
              </div>
            </div>
