@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Activity, ShieldCheck, Database, Zap } from 'lucide-react';
+import { ShieldCheck, Database, Zap } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface SystemStatusProps {
@@ -9,21 +9,19 @@ interface SystemStatusProps {
 }
 
 export const SystemStatus: React.FC<SystemStatusProps> = ({ lastUpdated, isSyncing }) => {
-  const isToday = lastUpdated ? format(lastUpdated, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd') : false;
-
   return (
-    <div className="flex flex-wrap items-center gap-6 px-4 py-2 bg-slate-900 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 rounded-sm mb-6 border border-slate-800">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-8 px-6 py-3 bg-white text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 rounded-xl mb-10 border border-slate-100 shadow-sm">
+      <div className="flex items-center gap-2.5">
         <Database size={12} className={isSyncing ? "animate-pulse text-amber-500" : "text-emerald-500"} />
-        <span>DB Sync: {isSyncing ? '正在同步 Syncing' : '連線正常 Stable'}</span>
+        <span className="text-slate-500">Node: {isSyncing ? 'Syncing...' : 'Encrypted'}</span>
       </div>
-      <div className="flex items-center gap-2">
-        <ShieldCheck size={12} className={isToday ? "text-emerald-500" : "text-rose-500"} />
-        <span>Python Scan: {lastUpdated ? format(lastUpdated, 'yyyy/MM/dd HH:mm') : 'N/A'}</span>
+      <div className="flex items-center gap-2.5">
+        <ShieldCheck size={12} className="text-blue-500" />
+        <span className="text-slate-500">Python Scan: {lastUpdated ? format(lastUpdated, 'yyyy/MM/dd HH:mm') : 'Syncing...'}</span>
       </div>
-      <div className="flex items-center gap-2 ml-auto">
+      <div className="flex items-center gap-2.5 ml-auto">
         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-        <span className="text-emerald-500">AI Auditor Online</span>
+        <span className="text-emerald-500 font-black">AI Auditor Live</span>
       </div>
     </div>
   );

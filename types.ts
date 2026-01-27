@@ -8,28 +8,30 @@ export interface DailyAnalysis {
   turnover_value?: number;
   technical_signal?: string;
   
-  // 核心數據
+  // 核心數據 (與後端對齊)
   ai_score: number;
   roe: number;
-  revenue_growth: number; 
+  revenue_yoy: number; 
   pe_ratio: number;
   sector?: string;        
   
-  // 風控數據 (從 tech_meta 解析)
+  // 風控數據
   trade_stop?: number;
   trade_tp1?: number;
   trade_tp2?: number;
   atr_proxy?: number;
-  trade_signal: string;
-  invest_signal: string;
+  trade_signal: 'TRADE_BUY' | 'TRADE_WATCH' | 'AVOID' | 'INVEST_HOLD' | string;
   ai_comment?: string;
 
+  // 庫藏股擴充欄位 (用於 UI 呈現與績效計算)
+  buy_price?: number;
+  is_holding_item?: boolean;
+  portfolio_id?: string;
+
   // 系統欄位
-  created_at?: string;
+  created_at: string;
   updated_at: string;
-  tech_meta?: string;
-  // Added data_tier to resolve property not existing error in StockCard.tsx
-  data_tier?: string | number;
+  analysis_date: string;
 }
 
 export interface PortfolioItem {
@@ -39,16 +41,14 @@ export interface PortfolioItem {
   buy_price: number;
   quantity: number;
   status: 'holding';
-  created_at?: string;
+  created_at: string;
 }
 
 export interface TradeSignal {
-  signal: string;
+  label: string;
   color: 'emerald' | 'rose' | 'amber' | 'slate';
   reason: string;
-  isAlert: boolean;
   trend: 'up' | 'down' | 'stable';
-  tags: string[]; 
 }
 
 export interface DashboardState {
@@ -57,5 +57,4 @@ export interface DashboardState {
   loading: boolean;
   error: string | null;
   lastUpdated: Date | null;
-  topPickCode: string | null;
 }
