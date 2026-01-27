@@ -1,40 +1,30 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { DailyAnalysis, PortfolioItem } from '../types';
 
-/**
- * 安全地從環境中獲取變數，支援 Vite (import.meta.env) 與標準 process.env
- */
-const getEnvVar = (key: string): string => {
-  try {
-    // 優先從 import.meta.env 讀取 (Vite 模式)
-    const viteEnv = (import.meta as any)?.env?.[key];
-    if (viteEnv) return viteEnv;
-
-    // 回退到 process.env (標準 Node/CI 模式)
-    const procEnv = (process as any)?.env?.[key];
-    if (procEnv) return procEnv;
-  } catch (e) {
-    // 忽略錯誤，回退到空字串
+const getEnv = (key: string): string => {
+  if (typeof (import.meta as any) !== 'undefined' && (import.meta as any).env?.[key]) {
+    return (import.meta as any).env[key];
+  }
+  if (typeof process !== 'undefined' && (process as any).env?.[key]) {
+    return (process as any).env[key];
   }
   return '';
 };
 
-const supabaseUrl = getEnvVar('NEXT_PUBLIC_SUPABASE_URL');
-const supabaseAnonKey = getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+const SUPABASE_URL = getEnv('NEXT_PUBLIC_SUPABASE_URL') || 'https://zfkwzbupyvrrthuowchc.supabase.co';
+const SUPABASE_KEY = getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY') || 'sb_publishable_wtSso_NL3o6j69XDmfeyvg_Hqs1w2i5';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn("⚠️ [Supabase] 檢測到環境變數缺失。請確保 NEXT_PUBLIC_SUPABASE_URL 與 NEXT_PUBLIC_SUPABASE_ANON_KEY 已正確設定。");
-}
-
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export const fetchDailyAnalysis = async (): Promise<DailyAnalysis[]> => {
   try {
     const { data, error } = await supabase
       .from('daily_analysis')
       .select('*')
-      .order('analysis_date', { ascending: false }) 
-      .order('ai_score', { ascending: false });
+      // 核心修復：擴張至 2000 筆，確保「資產金庫」中的所有標的都能對應到現價
+      .order('ai_score', { ascending: false })
+      .limit(2000); 
 
     if (error) throw error;
     
@@ -42,12 +32,13 @@ export const fetchDailyAnalysis = async (): Promise<DailyAnalysis[]> => {
     
     return result.map(item => ({
       ...item,
-      roe: Number(item.roe ?? 0), 
+      // 確保數值型態正確且處理空值
+      roe: item.roe !== null ? Number(item.roe) : null, 
       revenue_growth: Number(item.revenue_yoy ?? item.revenue_growth ?? 0), 
-      pe_ratio: Number(item.pe_ratio ?? 0),
+      pe_ratio: item.pe_ratio !== null && item.pe_ratio !== 0 ? Number(item.pe_ratio) : null,
       ai_score: Number(item.ai_score ?? 0),
-      previous_ai_score: Number(item.previous_ai_score ?? item.ai_score ?? 0),
       turnover_value: Number(item.turnover_value ?? (item.volume * item.close_price * 1000) ?? 0),
+      // 修復：優先顯示資料庫內的掃描日期 (analysis_date)，而非寫入時間 (updated_at)
       updated_at: item.analysis_date || item.updated_at || new Date().toISOString()
     })) as DailyAnalysis[];
 
@@ -77,6 +68,7 @@ export const addToPortfolio = async (stockCode: string, stockName: string, price
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated");
 
+  // 自動處理台股後綴
   const formattedCode = stockCode.toUpperCase().includes('.TW') ? stockCode.toUpperCase() : `${stockCode.toUpperCase()}.TW`;
   
   const { error } = await supabase

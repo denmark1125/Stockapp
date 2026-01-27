@@ -1,17 +1,11 @@
 
 import React from 'react';
-import { TrendingUp, TrendingDown, ArrowRight, Zap, Activity, ShieldAlert } from 'lucide-react';
-import { DailyAnalysis } from '../types';
+import { TrendingUp, TrendingDown, Zap, Activity, AlertTriangle, ChevronRight, Info } from 'lucide-react';
+import { DailyAnalysis, TradeSignal } from '../types';
 
 interface ActionCardProps {
   stock: DailyAnalysis;
-  quant: {
-    signal: string;
-    color: 'emerald' | 'rose' | 'slate' | 'amber';
-    reason: string;
-    isAlert: boolean;
-    trend?: 'up' | 'down' | 'stable';
-  };
+  quant: TradeSignal;
   isPortfolio?: boolean;
   returnPercent?: number;
   buyPrice?: number;
@@ -19,121 +13,121 @@ interface ActionCardProps {
 }
 
 export const ActionCard: React.FC<ActionCardProps> = ({ 
-  stock, 
-  quant,
-  isPortfolio, 
-  returnPercent = 0, 
-  buyPrice, 
-  onSelect 
+  stock, quant, isPortfolio, returnPercent = 0, buyPrice, onSelect 
 }) => {
-  const roe = stock.roe || 0;
+  const roe = stock.roe;
   const score = stock.ai_score || 0;
-  const prevScore = stock.previous_ai_score || score;
-  const deltaScore = score - prevScore;
   const revGrowth = stock.revenue_growth || 0;
-  
+  const pe = stock.pe_ratio;
+
   const styleMap = {
     emerald: {
-      border: "border-l-4 border-l-emerald-500 border-slate-100",
+      border: "border-l-4 border-l-emerald-500",
       bg: "bg-white",
-      signal: "text-emerald-600",
-      badge: "bg-emerald-50 text-emerald-700"
-    },
-    rose: {
-      border: isPortfolio ? "border-rose-600" : "border-l-4 border-l-rose-500 border-rose-100",
-      bg: isPortfolio ? "bg-rose-600" : "bg-rose-50/30",
-      signal: isPortfolio ? "text-white" : "text-rose-600",
-      badge: isPortfolio ? "bg-white/20 text-white" : "bg-rose-100 text-rose-700"
+      text: "text-emerald-700",
+      icon: <TrendingUp size={18} className="text-emerald-500" />
     },
     amber: {
-      border: "border-l-4 border-l-amber-500 border-slate-100",
+      border: "border-l-4 border-l-amber-500",
       bg: "bg-white",
-      signal: "text-amber-600",
-      badge: "bg-amber-50 text-amber-800"
+      text: "text-amber-700",
+      icon: <Zap size={18} className="text-amber-500" />
+    },
+    rose: {
+      border: "border-l-4 border-l-rose-500",
+      bg: isPortfolio ? "bg-rose-50/30" : "bg-white",
+      text: "text-rose-700",
+      icon: <AlertTriangle size={18} className="text-rose-500" />
     },
     slate: {
-      border: "border-l-4 border-l-slate-300 border-slate-100",
+      border: "border-l-4 border-l-slate-300",
       bg: "bg-slate-50/50",
-      signal: "text-slate-400",
-      badge: "bg-slate-100 text-slate-500"
+      text: "text-slate-600",
+      icon: <Activity size={18} className="text-slate-400" />
     }
   };
 
   const s = styleMap[quant.color];
-  const isStopLoss = isPortfolio && quant.color === 'rose';
 
   return (
     <div 
       onClick={onSelect}
-      className={`relative flex flex-col sm:flex-row sm:items-center justify-between p-5 sm:p-7 mb-3 rounded-lg border shadow-sm transition-all active:scale-[0.98] cursor-pointer ${s.border} ${s.bg}`}
+      className={`relative p-5 mb-3 rounded-sm border border-slate-200/60 shadow-sm transition-all duration-300 cursor-pointer group hover:shadow-md ${s.border} ${s.bg}`}
     >
-      {/* 標識與動能 */}
-      <div className="flex justify-between items-start mb-4 sm:mb-0 sm:w-1/4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`text-[10px] font-black uppercase tracking-widest ${isStopLoss ? 'text-white/70' : 'text-slate-400'}`}>
-              {stock.stock_code}
-            </span>
-            {deltaScore !== 0 && (
-              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${deltaScore > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                <Zap size={8} fill="currentColor" /> {deltaScore > 0 ? '+' : ''}{deltaScore}
-              </span>
-            )}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        {/* 標的資訊與標籤 */}
+        <div className="lg:w-1/4">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="mono-text text-[10px] font-bold text-slate-400">{stock.stock_code}</span>
+            <div className="flex gap-1">
+              {quant.tags.slice(0, 2).map((tag, i) => (
+                <span key={i} className="px-1.5 py-0.5 text-[9px] font-black rounded-sm bg-slate-100 text-slate-500 uppercase tracking-tighter">
+                  {tag}
+                </span>
+              ))}
+            </div>
           </div>
-          <h3 className={`text-xl sm:text-2xl font-black italic tracking-tighter uppercase leading-none ${isStopLoss ? 'text-white' : 'text-slate-900'}`}>
+          <h3 className="text-xl font-black italic tracking-tighter text-slate-900 group-hover:text-emerald-600 transition-colors">
             {stock.stock_name}
           </h3>
         </div>
-        <div className={`sm:hidden px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${s.badge}`}>
-          {quant.signal}
-        </div>
-      </div>
 
-      {/* 數據矩陣 */}
-      <div className="grid grid-cols-3 gap-4 sm:flex sm:items-center sm:gap-8 sm:w-1/3 mb-4 sm:mb-0">
-        <div className="flex flex-col">
-           <span className={`text-[8px] font-bold uppercase tracking-widest mb-1 ${isStopLoss ? 'text-white/60' : 'text-slate-400'}`}>AI SCORE</span>
-           <span className={`text-lg font-black ${isStopLoss ? 'text-white' : 'text-slate-900'}`}>{score}</span>
+        {/* 核心數據矩陣 */}
+        <div className="grid grid-cols-4 gap-4 lg:w-1/3 py-3 lg:py-0 border-y lg:border-none border-slate-50">
+          <div className="text-center md:text-left">
+            <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">AI 分數</span>
+            <span className={`text-lg font-black ${score >= 80 ? 'text-emerald-600' : 'text-slate-900'}`}>{score}</span>
+          </div>
+          <div className="text-center md:text-left">
+            <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">ROE %</span>
+            <span className={`text-lg font-black ${roe === null || roe <= 0 ? 'text-rose-500' : 'text-slate-900'}`}>
+              {roe === null || roe <= 0 ? '虧損' : `${roe}%`}
+            </span>
+          </div>
+          <div className="text-center md:text-left">
+            <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">營收年增</span>
+            <span className={`text-lg font-black ${revGrowth >= 25 ? 'text-amber-500' : 'text-slate-900'}`}>{revGrowth}%</span>
+          </div>
+          <div className="text-center md:text-left">
+            <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">本益比</span>
+            <span className="text-lg font-black text-slate-900">
+              {pe === null || pe === 0 ? '-' : pe}
+            </span>
+          </div>
         </div>
-        <div className="flex flex-col">
-           <span className={`text-[8px] font-bold uppercase tracking-widest mb-1 ${isStopLoss ? 'text-white/60' : 'text-slate-400'}`}>ROE %</span>
-           <span className={`text-lg font-black ${isStopLoss ? 'text-white' : 'text-slate-900'}`}>{roe}%</span>
-        </div>
-        <div className="flex flex-col">
-           <span className={`text-[8px] font-bold uppercase tracking-widest mb-1 ${isStopLoss ? 'text-white/60' : 'text-slate-400'}`}>REV YOY</span>
-           <span className={`text-lg font-black ${revGrowth > 30 ? (isStopLoss ? 'text-white' : 'text-amber-500') : (isStopLoss ? 'text-white' : 'text-slate-900')}`}>
-             {revGrowth > 0 ? '+' : ''}{revGrowth}%
-           </span>
-        </div>
-      </div>
 
-      {/* 理由區（桌機版顯示詳細，手機版隱藏） */}
-      <div className="hidden sm:flex flex-col w-1/4 px-6 border-l border-slate-100">
-        <span className={`text-base font-black italic uppercase mb-1 ${s.signal}`}>{quant.signal}</span>
-        <p className={`text-[11px] leading-relaxed line-clamp-2 italic ${isStopLoss ? 'text-rose-50' : 'text-slate-400'}`}>「{quant.reason}」</p>
-      </div>
-
-      {/* 價格與回報 */}
-      <div className="flex items-end justify-between sm:flex-col sm:items-end sm:w-auto">
-        <div className="sm:hidden text-[11px] font-medium opacity-60 italic max-w-[60%] truncate">
-          {quant.reason}
+        {/* 審計點評 */}
+        <div className="lg:w-1/4 lg:px-6 lg:border-l border-slate-100">
+           <div className="flex items-center gap-2 mb-1">
+             <span className={`text-[10px] font-black italic uppercase px-1.5 py-0.5 rounded ${s.text} bg-slate-50`}>
+               {quant.signal}
+             </span>
+           </div>
+           <p className="text-[11px] text-slate-500 font-medium italic leading-snug line-clamp-2">「{quant.reason}」</p>
         </div>
-        <div className="text-right">
+
+        {/* 報價與損益 */}
+        <div className="flex justify-between items-center lg:flex-col lg:items-end lg:w-40">
           {isPortfolio ? (
-            <div className="flex flex-col items-end">
-              <div className={`text-[8px] font-bold uppercase tracking-widest mb-0.5 ${isStopLoss ? 'text-white/60' : 'text-slate-400'}`}>ALPHA</div>
-              <div className={`text-2xl font-black flex items-center gap-1 ${returnPercent >= 0 ? (isStopLoss ? 'text-white' : 'text-emerald-500') : (isStopLoss ? 'text-white' : 'text-white')}`}>
-                {returnPercent >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                {returnPercent.toFixed(1)}%
+            <div className="text-right space-y-1">
+              <div className="flex justify-end gap-3 text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                <span>Buy ${buyPrice}</span>
+                <span className="text-slate-900">Curr ${stock.close_price}</span>
+              </div>
+              <div className={`text-2xl font-black ${returnPercent >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {returnPercent >= 0 ? '+' : ''}{returnPercent.toFixed(1)}%
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-end">
-              <div className="text-[8px] font-bold uppercase text-slate-400 mb-0.5 tracking-widest">QUOTE</div>
+            <div className="text-right">
+              <div className="text-[9px] font-bold text-slate-400 uppercase mb-0.5">成交價 Price</div>
               <div className="text-2xl font-black text-slate-900">${stock.close_price}</div>
             </div>
           )}
         </div>
+      </div>
+      <div className="absolute right-2 top-4 opacity-0 group-hover:opacity-100 transition-opacity">
+        <ChevronRight size={14} className="text-slate-300" />
       </div>
     </div>
   );
