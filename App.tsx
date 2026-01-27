@@ -11,7 +11,7 @@ import { ActionCard } from './components/StockCard';
 import { SystemStatus } from './components/SystemStatus';
 import { StockDetailModal } from './components/StockDetailModal';
 import { GoogleGenAI } from "@google/genai";
-import { format, isAfter, isValid, isBefore, addHours } from 'date-fns';
+import { format, isAfter, isValid } from 'date-fns';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
@@ -81,7 +81,6 @@ const App: React.FC = () => {
   const calculateTradeSignal = useCallback((stock: DailyAnalysis, isPortfolioItem = false, buyPrice?: number): TradeSignal => {
     const score = stock.ai_score ?? 0;
     
-    // 與 Python 腳本邏輯對齊
     if (stock.trade_signal === 'TRADE_BUY' || score >= 85) {
       return { 
         signal: "多頭進場 BUY", color: "emerald", 
@@ -108,6 +107,14 @@ const App: React.FC = () => {
     setAiReport(null);
     setIsReportModalOpen(true);
     try {
+      // 根據指令：必須直接從 process.env.API_KEY 獲取 API 金鑰並初始化
+      // 使用 (process.env as any) 以避免 TypeScript 在部分環境下的類型報錯
+      const apiKey = (process.env as any).API_KEY;
+      
+      if (!apiKey) {
+        throw new Error("系統未偵測到 API_KEY，請確認環境變數配置。");
+      }
+
       const apiKey = import.meta.env.NEXT_PUBLIC_GEMINI_API || import.meta.env.VITE_GEMINI_API_KEY;
 
       // 🔥【關鍵修正 2】防呆檢查
@@ -153,22 +160,17 @@ const App: React.FC = () => {
     try {
       const [marketData, portfolioData] = await Promise.all([fetchDailyAnalysis(), fetchPortfolio()]);
       
-      const now = new Date();
-      // 容許 1 小時的時間誤差（伺服器與本地時差）
-      const safetyBuffer = addHours(now, 1);
-      
+      // 尋找資料集中最晚的更新時間 (Python 掃描的真正完成時間)
       let latestDate = new Date(0);
-      
       marketData.forEach(item => {
         const d = new Date(item.updated_at);
-        // 關鍵：必須是有效日期，比目前紀錄晚，且「不可晚於現在（排除未來異常數據）」
-        if (isValid(d) && isAfter(d, latestDate) && isBefore(d, safetyBuffer)) {
+        if (isValid(d) && isAfter(d, latestDate)) {
           latestDate = d;
         }
       });
       
-      // 如果完全沒找到有效時間，則使用當前時間作為 fallback
-      const finalUpdateDate = isValid(latestDate) && latestDate.getTime() !== 0 ? latestDate : now;
+      // 如果資料集中無有效時間，則以當前時間作為最後同步時間
+      const finalUpdateDate = isValid(latestDate) && latestDate.getTime() !== 0 ? latestDate : new Date();
       
       setState({ 
         data: marketData, 
@@ -229,7 +231,6 @@ const App: React.FC = () => {
       <main className="max-w-[1100px] mx-auto px-6 py-10">
         <SystemStatus lastUpdated={state.lastUpdated} isSyncing={state.loading} />
 
-        {/* Hero Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
           <div className="lg:col-span-2 bg-white p-12 border border-slate-200 shadow-2xl relative overflow-hidden rounded-sm">
             <div className="absolute top-0 right-0 p-8 opacity-5"><Trophy size={140} /></div>
