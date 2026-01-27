@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { TrendingUp, TrendingDown, ArrowRight, Minus, AlertCircle, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, ArrowRight, Zap, Activity, ShieldAlert } from 'lucide-react';
 import { DailyAnalysis } from '../types';
 
 interface ActionCardProps {
@@ -30,106 +30,110 @@ export const ActionCard: React.FC<ActionCardProps> = ({
   const score = stock.ai_score || 0;
   const prevScore = stock.previous_ai_score || score;
   const deltaScore = score - prevScore;
+  const revGrowth = stock.revenue_growth || 0;
   
   const styleMap = {
     emerald: {
-      signalColor: "text-emerald-500",
-      borderColor: "border-emerald-100",
-      indicatorColor: "bg-emerald-500",
-      pulsing: !isPortfolio && quant.trend === 'up'
+      border: "border-l-4 border-l-emerald-500 border-slate-100",
+      bg: "bg-white",
+      signal: "text-emerald-600",
+      badge: "bg-emerald-50 text-emerald-700"
     },
     rose: {
-      signalColor: isPortfolio ? "text-white" : "text-rose-600",
-      borderColor: isPortfolio ? "border-rose-500" : "border-rose-100",
-      indicatorColor: "bg-rose-600",
-      pulsing: isPortfolio || quant.isAlert
+      border: isPortfolio ? "border-rose-600" : "border-l-4 border-l-rose-500 border-rose-100",
+      bg: isPortfolio ? "bg-rose-600" : "bg-rose-50/30",
+      signal: isPortfolio ? "text-white" : "text-rose-600",
+      badge: isPortfolio ? "bg-white/20 text-white" : "bg-rose-100 text-rose-700"
     },
     amber: {
-      signalColor: "text-amber-600",
-      borderColor: "border-amber-100",
-      indicatorColor: "bg-amber-400",
-      pulsing: true
+      border: "border-l-4 border-l-amber-500 border-slate-100",
+      bg: "bg-white",
+      signal: "text-amber-600",
+      badge: "bg-amber-50 text-amber-800"
     },
     slate: {
-      signalColor: "text-slate-400",
-      borderColor: "border-slate-100",
-      indicatorColor: "bg-slate-300",
-      pulsing: false
+      border: "border-l-4 border-l-slate-300 border-slate-100",
+      bg: "bg-slate-50/50",
+      signal: "text-slate-400",
+      badge: "bg-slate-100 text-slate-500"
     }
   };
 
-  const currentStyle = styleMap[quant.color];
-  const cardBg = (isPortfolio && quant.color === 'rose') ? "bg-rose-600" : "bg-white hover:bg-slate-50";
-  const textColor = (isPortfolio && quant.color === 'rose') ? "text-white" : "text-slate-900";
-  const mutedColor = (isPortfolio && quant.color === 'rose') ? "text-rose-100" : "text-slate-400";
+  const s = styleMap[quant.color];
+  const isStopLoss = isPortfolio && quant.color === 'rose';
 
   return (
     <div 
       onClick={onSelect}
-      className={`group relative flex flex-col lg:flex-row items-stretch lg:items-center justify-between p-8 lg:p-12 transition-all cursor-pointer border ${currentStyle.borderColor} ${cardBg} ${currentStyle.pulsing ? 'ring-2 ring-emerald-400/10' : ''} shadow-sm rounded-sm overflow-hidden`}
+      className={`relative flex flex-col sm:flex-row sm:items-center justify-between p-5 sm:p-7 mb-3 rounded-lg border shadow-sm transition-all active:scale-[0.98] cursor-pointer ${s.border} ${s.bg}`}
     >
-      <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${currentStyle.indicatorColor}`} />
-
-      {/* 左側：基本資訊與變動 */}
-      <div className="flex flex-col min-w-0 lg:w-1/4 mb-6 lg:mb-0 lg:pr-8">
-        <div className="flex items-center gap-3 mb-2">
-          <span className={`mono-text text-[10px] font-black uppercase tracking-widest ${mutedColor}`}>
-            {stock.stock_code}
-          </span>
-          <div className={`flex items-center gap-1 text-[10px] font-bold ${deltaScore > 0 ? 'text-emerald-500' : deltaScore < 0 ? 'text-rose-500' : 'text-slate-300'}`}>
-            <Zap size={10} fill="currentColor" />
-            Δ {deltaScore > 0 ? '+' : ''}{deltaScore}
+      {/* 標識與動能 */}
+      <div className="flex justify-between items-start mb-4 sm:mb-0 sm:w-1/4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`text-[10px] font-black uppercase tracking-widest ${isStopLoss ? 'text-white/70' : 'text-slate-400'}`}>
+              {stock.stock_code}
+            </span>
+            {deltaScore !== 0 && (
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${deltaScore > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                <Zap size={8} fill="currentColor" /> {deltaScore > 0 ? '+' : ''}{deltaScore}
+              </span>
+            )}
           </div>
+          <h3 className={`text-xl sm:text-2xl font-black italic tracking-tighter uppercase leading-none ${isStopLoss ? 'text-white' : 'text-slate-900'}`}>
+            {stock.stock_name}
+          </h3>
         </div>
-        <h3 className={`text-4xl lg:text-5xl font-black italic tracking-tighter uppercase leading-tight truncate ${textColor}`}>
-          {stock.stock_name}
-        </h3>
-        <div className="mt-2 flex items-center gap-6">
-           <div className={`text-[9px] font-bold uppercase tracking-widest ${mutedColor}`}>ROE: {roe}%</div>
-           <div className={`text-[9px] font-bold uppercase tracking-widest ${mutedColor}`}>Rev: +{stock.revenue_growth}%</div>
-        </div>
-      </div>
-
-      {/* 中間：信號 */}
-      <div className="flex flex-col items-start lg:items-center lg:justify-center lg:w-1/5 mb-6 lg:mb-0 min-w-0">
-        <span className={`text-3xl lg:text-4xl font-black italic tracking-tighter uppercase whitespace-nowrap ${currentStyle.signalColor}`}>
+        <div className={`sm:hidden px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${s.badge}`}>
           {quant.signal}
-        </span>
-        <div className={`mt-2 mono-text text-[9px] uppercase font-bold tracking-[0.2em] opacity-50 ${textColor}`}>
-          Score: {score}
         </div>
       </div>
 
-      {/* 右側：動態理由 */}
-      <div className="flex flex-col lg:w-1/3 min-w-0 mb-6 lg:mb-0 lg:px-8 border-l border-slate-50 lg:border-slate-100">
-        <p className={`text-sm lg:text-base font-medium leading-relaxed italic line-clamp-2 ${isPortfolio && quant.color === 'rose' ? 'text-rose-50' : 'text-slate-500'}`}>
-          「{quant.reason}」
-        </p>
+      {/* 數據矩陣 */}
+      <div className="grid grid-cols-3 gap-4 sm:flex sm:items-center sm:gap-8 sm:w-1/3 mb-4 sm:mb-0">
+        <div className="flex flex-col">
+           <span className={`text-[8px] font-bold uppercase tracking-widest mb-1 ${isStopLoss ? 'text-white/60' : 'text-slate-400'}`}>AI SCORE</span>
+           <span className={`text-lg font-black ${isStopLoss ? 'text-white' : 'text-slate-900'}`}>{score}</span>
+        </div>
+        <div className="flex flex-col">
+           <span className={`text-[8px] font-bold uppercase tracking-widest mb-1 ${isStopLoss ? 'text-white/60' : 'text-slate-400'}`}>ROE %</span>
+           <span className={`text-lg font-black ${isStopLoss ? 'text-white' : 'text-slate-900'}`}>{roe}%</span>
+        </div>
+        <div className="flex flex-col">
+           <span className={`text-[8px] font-bold uppercase tracking-widest mb-1 ${isStopLoss ? 'text-white/60' : 'text-slate-400'}`}>REV YOY</span>
+           <span className={`text-lg font-black ${revGrowth > 30 ? (isStopLoss ? 'text-white' : 'text-amber-500') : (isStopLoss ? 'text-white' : 'text-slate-900')}`}>
+             {revGrowth > 0 ? '+' : ''}{revGrowth}%
+           </span>
+        </div>
       </div>
 
-      {/* 數據看板 */}
-      <div className="flex items-center justify-between lg:justify-end gap-10 lg:ml-auto flex-shrink-0">
-        {isPortfolio ? (
-          <div className="flex gap-10 items-center">
-            <div className="text-right">
-              <div className={`mono-text text-[9px] uppercase ${mutedColor} mb-1 tracking-widest`}>Cost</div>
-              <div className={`text-2xl font-black ${textColor}`}>${buyPrice}</div>
-            </div>
-            <div className="text-right">
-              <div className={`mono-text text-[9px] uppercase ${mutedColor} mb-1 tracking-widest`}>Alpha</div>
-              <div className={`text-3xl font-black flex items-center justify-end gap-2 ${returnPercent >= 0 ? (isPortfolio && quant.color === 'rose' ? 'text-white' : 'text-emerald-500') : (isPortfolio && quant.color === 'rose' ? 'text-white' : 'text-white')}`}>
-                {returnPercent >= 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
-                {returnPercent?.toFixed(1)}%
+      {/* 理由區（桌機版顯示詳細，手機版隱藏） */}
+      <div className="hidden sm:flex flex-col w-1/4 px-6 border-l border-slate-100">
+        <span className={`text-base font-black italic uppercase mb-1 ${s.signal}`}>{quant.signal}</span>
+        <p className={`text-[11px] leading-relaxed line-clamp-2 italic ${isStopLoss ? 'text-rose-50' : 'text-slate-400'}`}>「{quant.reason}」</p>
+      </div>
+
+      {/* 價格與回報 */}
+      <div className="flex items-end justify-between sm:flex-col sm:items-end sm:w-auto">
+        <div className="sm:hidden text-[11px] font-medium opacity-60 italic max-w-[60%] truncate">
+          {quant.reason}
+        </div>
+        <div className="text-right">
+          {isPortfolio ? (
+            <div className="flex flex-col items-end">
+              <div className={`text-[8px] font-bold uppercase tracking-widest mb-0.5 ${isStopLoss ? 'text-white/60' : 'text-slate-400'}`}>ALPHA</div>
+              <div className={`text-2xl font-black flex items-center gap-1 ${returnPercent >= 0 ? (isStopLoss ? 'text-white' : 'text-emerald-500') : (isStopLoss ? 'text-white' : 'text-white')}`}>
+                {returnPercent >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                {returnPercent.toFixed(1)}%
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="text-right">
-            <div className="mono-text text-[9px] uppercase text-slate-300 mb-1 tracking-widest">Quote</div>
-            <div className="text-3xl font-black text-slate-900">${stock.close_price}</div>
-          </div>
-        )}
-        <ArrowRight size={28} className={`${mutedColor} group-hover:translate-x-3 transition-all duration-300 hidden lg:block`} />
+          ) : (
+            <div className="flex flex-col items-end">
+              <div className="text-[8px] font-bold uppercase text-slate-400 mb-0.5 tracking-widest">QUOTE</div>
+              <div className="text-2xl font-black text-slate-900">${stock.close_price}</div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

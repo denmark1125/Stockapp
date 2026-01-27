@@ -1,23 +1,14 @@
 import path from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, '.', '');
-    return {
-      server: {
-        port: 3000,
-        host: '0.0.0.0',
-      },
-      plugins: [react()],
-      define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-      },
-      resolve: {
-        alias: {
-          '@': path.resolve(__dirname, '.'),
-        }
-      }
-    };
+export default defineConfig({
+  plugins: [react()],
+  // 關鍵：告訴 Vite 允許讀取 NEXT_PUBLIC_ 開頭的環境變數，配合 Vercel/Next.js 標準
+  envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, '.'),
+    }
+  },
 });

@@ -1,59 +1,55 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { DailyAnalysis, PortfolioItem } from '../types';
 
 /**
- * 核心連線設定
- * 優先從環境變數讀取，確保安全性。
+ * 安全地從環境中獲取變數，支援 Vite (import.meta.env) 與標準 process.env
  */
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zfkwzbupyvrrthuowchc.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_wtSso_NL3o6j69XDmfeyvg_Hqs1w2i5';
+const getEnvVar = (key: string): string => {
+  try {
+    // 優先從 import.meta.env 讀取 (Vite 模式)
+    const viteEnv = (import.meta as any)?.env?.[key];
+    if (viteEnv) return viteEnv;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// --- 會員驗證 ---
-export const getCurrentUser = async () => {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error) return null;
-  return user;
+    // 回退到 process.env (標準 Node/CI 模式)
+    const procEnv = (process as any)?.env?.[key];
+    if (procEnv) return procEnv;
+  } catch (e) {
+    // 忽略錯誤，回退到空字串
+  }
+  return '';
 };
 
-export const signOut = async () => {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
-};
+const supabaseUrl = getEnvVar('NEXT_PUBLIC_SUPABASE_URL');
+const supabaseAnonKey = getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY');
 
-// --- 資料存取 ---
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn("⚠️ [Supabase] 檢測到環境變數缺失。請確保 NEXT_PUBLIC_SUPABASE_URL 與 NEXT_PUBLIC_SUPABASE_ANON_KEY 已正確設定。");
+}
 
-/**
- * 抓取每日 AI 市場分析
- * 優化數據富化邏輯，確保 ROE 指數與成長率具備邏輯一致性
- */
+export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+
 export const fetchDailyAnalysis = async (): Promise<DailyAnalysis[]> => {
   try {
     const { data, error } = await supabase
       .from('daily_analysis')
       .select('*')
+      .order('analysis_date', { ascending: false }) 
       .order('ai_score', { ascending: false });
 
     if (error) throw error;
     
     const result = (data as any[]) || [];
     
-    return result.map(item => {
-      // 確保 ROE 指數優化：如果分數高，通常 ROE 不會太難看，除非是純技術面股
-      const defaultRoe = item.ai_score && item.ai_score > 80 
-        ? Math.floor(Math.random() * 15) + 15  // 高分股 ROE 15-30%
-        : Math.floor(Math.random() * 20) - 5;  // 其他 -5% 到 15%
-
-      return {
-        ...item,
-        roe: item.roe ?? defaultRoe,
-        revenue_growth: item.revenue_growth ?? (item.ai_score && item.ai_score > 80 ? Math.floor(Math.random() * 30) + 10 : Math.floor(Math.random() * 40) - 10),
-        sector: item.sector ?? (['半導體', 'AI鏈', '光通訊', '金融', '重電'][Math.floor(Math.random() * 5)]),
-        ai_score: item.ai_score ?? Math.floor(Math.random() * 40) + 50,
-      };
-    }) as DailyAnalysis[];
+    return result.map(item => ({
+      ...item,
+      roe: Number(item.roe ?? 0), 
+      revenue_growth: Number(item.revenue_yoy ?? item.revenue_growth ?? 0), 
+      pe_ratio: Number(item.pe_ratio ?? 0),
+      ai_score: Number(item.ai_score ?? 0),
+      previous_ai_score: Number(item.previous_ai_score ?? item.ai_score ?? 0),
+      turnover_value: Number(item.turnover_value ?? (item.volume * item.close_price * 1000) ?? 0),
+      updated_at: item.analysis_date || item.updated_at || new Date().toISOString()
+    })) as DailyAnalysis[];
 
   } catch (err) {
     console.error('[Supabase] fetchDailyAnalysis Error:', err);
@@ -103,5 +99,10 @@ export const deleteFromPortfolio = async (id: string | number): Promise<void> =>
     .delete()
     .eq('id', id);
 
+  if (error) throw error;
+};
+
+export const signOut = async (): Promise<void> => {
+  const { error } = await supabase.auth.signOut();
   if (error) throw error;
 };

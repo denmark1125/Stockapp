@@ -6,12 +6,14 @@ export interface DailyAnalysis {
   close_price: number;
   volume: number;
   turnover_value?: number; // 成交金額
-  technical_signal: string;
-  ai_suggestion: string;
+  technical_signal?: string;
+  ai_suggestion?: string;
   created_at: string;
   updated_at: string;
   roe?: number;
-  revenue_growth?: number;
+  revenue_yoy?: number; // 資料庫原始欄位
+  revenue_growth?: number; // 前端映射欄位
+  pe_ratio?: number;
   sector?: string;
   ai_summary?: string;
   ai_score?: number;
