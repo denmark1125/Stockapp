@@ -15,9 +15,21 @@ export interface DailyAnalysis {
   pe_ratio: number;
   sector?: string;        
   
+  // 風控數據 (從 tech_meta 解析)
+  trade_stop?: number;
+  trade_tp1?: number;
+  trade_tp2?: number;
+  atr_proxy?: number;
+  trade_signal: string;
+  invest_signal: string;
+  ai_comment?: string;
+
   // 系統欄位
   created_at?: string;
   updated_at: string;
+  tech_meta?: string;
+  // Added data_tier to resolve property not existing error in StockCard.tsx
+  data_tier?: string | number;
 }
 
 export interface PortfolioItem {
