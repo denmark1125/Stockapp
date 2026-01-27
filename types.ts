@@ -5,14 +5,17 @@ export interface DailyAnalysis {
   stock_name: string;
   close_price: number;
   volume: number;
+  turnover_value?: number; // 成交金額
   technical_signal: string;
-  ai_suggestion: string; // "Green" or "Red" keywords included here
+  ai_suggestion: string;
   created_at: string;
+  updated_at: string;
   roe?: number;
   revenue_growth?: number;
   sector?: string;
   ai_summary?: string;
-  ai_score?: number; // 新增分數欄位
+  ai_score?: number;
+  previous_ai_score?: number; // 歷史分數對比
 }
 
 export interface PortfolioItem {
@@ -23,11 +26,6 @@ export interface PortfolioItem {
   quantity: number;
   status: 'holding';
   created_at?: string;
-}
-
-export interface User {
-  username: string;
-  name: string;
 }
 
 export interface DashboardState {

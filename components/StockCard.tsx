@@ -1,19 +1,18 @@
 
 import React from 'react';
-import { ShieldCheck, TrendingUp, TrendingDown, ArrowRight, AlertTriangle } from 'lucide-react';
+import { TrendingUp, TrendingDown, ArrowRight, Minus, AlertCircle, Zap } from 'lucide-react';
 import { DailyAnalysis } from '../types';
 
 interface ActionCardProps {
   stock: DailyAnalysis;
   quant: {
     signal: string;
-    color: 'emerald' | 'rose' | 'slate';
+    color: 'emerald' | 'rose' | 'slate' | 'amber';
     reason: string;
     isAlert: boolean;
-    isAnomaly: boolean;
+    trend?: 'up' | 'down' | 'stable';
   };
   isPortfolio?: boolean;
-  unrealizedPL?: number;
   returnPercent?: number;
   buyPrice?: number;
   onSelect: () => void;
@@ -28,96 +27,109 @@ export const ActionCard: React.FC<ActionCardProps> = ({
   onSelect 
 }) => {
   const roe = stock.roe || 0;
+  const score = stock.ai_score || 0;
+  const prevScore = stock.previous_ai_score || score;
+  const deltaScore = score - prevScore;
   
   const styleMap = {
     emerald: {
       signalColor: "text-emerald-500",
-      bgColor: "bg-emerald-50/50 border border-emerald-100",
-      pulsing: !isPortfolio 
+      borderColor: "border-emerald-100",
+      indicatorColor: "bg-emerald-500",
+      pulsing: !isPortfolio && quant.trend === 'up'
     },
     rose: {
       signalColor: isPortfolio ? "text-white" : "text-rose-600",
-      bgColor: isPortfolio ? "bg-rose-500" : "bg-rose-50 border border-rose-100",
-      pulsing: isPortfolio 
+      borderColor: isPortfolio ? "border-rose-500" : "border-rose-100",
+      indicatorColor: "bg-rose-600",
+      pulsing: isPortfolio || quant.isAlert
+    },
+    amber: {
+      signalColor: "text-amber-600",
+      borderColor: "border-amber-100",
+      indicatorColor: "bg-amber-400",
+      pulsing: true
     },
     slate: {
       signalColor: "text-slate-400",
-      bgColor: "bg-slate-50 border border-slate-100",
+      borderColor: "border-slate-100",
+      indicatorColor: "bg-slate-300",
       pulsing: false
     }
   };
 
   const currentStyle = styleMap[quant.color];
+  const cardBg = (isPortfolio && quant.color === 'rose') ? "bg-rose-600" : "bg-white hover:bg-slate-50";
   const textColor = (isPortfolio && quant.color === 'rose') ? "text-white" : "text-slate-900";
+  const mutedColor = (isPortfolio && quant.color === 'rose') ? "text-rose-100" : "text-slate-400";
 
   return (
     <div 
       onClick={onSelect}
-      className={`group relative flex flex-col lg:flex-row items-center justify-between p-6 lg:p-10 transition-all cursor-pointer mb-4 ${currentStyle.bgColor} ${currentStyle.pulsing ? 'animate-pulse' : ''} hover:scale-[1.01] hover:shadow-xl rounded-sm`}
+      className={`group relative flex flex-col lg:flex-row items-stretch lg:items-center justify-between p-8 lg:p-12 transition-all cursor-pointer border ${currentStyle.borderColor} ${cardBg} ${currentStyle.pulsing ? 'ring-2 ring-emerald-400/10' : ''} shadow-sm rounded-sm overflow-hidden`}
     >
-      {/* 異常警告標籤 */}
-      {quant.isAnomaly && (
-        <div className="absolute -top-3 left-6 flex items-center gap-1 bg-amber-500 text-white text-[9px] font-black uppercase px-2 py-1 rounded-full shadow-lg z-10">
-          <AlertTriangle size={10} /> 數據異常警告
-        </div>
-      )}
+      <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${currentStyle.indicatorColor}`} />
 
-      {/* 左：名稱與代碼 */}
-      <div className="flex items-center gap-6 w-full lg:w-1/4">
-        <div className="flex flex-col">
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`mono-text text-[10px] font-black uppercase ${isPortfolio && quant.color === 'rose' ? 'text-rose-200' : 'text-slate-400'}`}>
-              {stock.stock_code}
-            </span>
-            {isPortfolio && <ShieldCheck size={12} className={quant.color === 'rose' ? 'text-white' : 'text-emerald-500'} />}
+      {/* 左側：基本資訊與變動 */}
+      <div className="flex flex-col min-w-0 lg:w-1/4 mb-6 lg:mb-0 lg:pr-8">
+        <div className="flex items-center gap-3 mb-2">
+          <span className={`mono-text text-[10px] font-black uppercase tracking-widest ${mutedColor}`}>
+            {stock.stock_code}
+          </span>
+          <div className={`flex items-center gap-1 text-[10px] font-bold ${deltaScore > 0 ? 'text-emerald-500' : deltaScore < 0 ? 'text-rose-500' : 'text-slate-300'}`}>
+            <Zap size={10} fill="currentColor" />
+            Δ {deltaScore > 0 ? '+' : ''}{deltaScore}
           </div>
-          <h3 className={`text-3xl lg:text-4xl font-black italic tracking-tighter uppercase ${textColor}`}>
-            {stock.stock_name}
-          </h3>
-          <div className={`text-[10px] font-bold uppercase opacity-60 ${textColor}`}>ROE: {roe}%</div>
+        </div>
+        <h3 className={`text-4xl lg:text-5xl font-black italic tracking-tighter uppercase leading-tight truncate ${textColor}`}>
+          {stock.stock_name}
+        </h3>
+        <div className="mt-2 flex items-center gap-6">
+           <div className={`text-[9px] font-bold uppercase tracking-widest ${mutedColor}`}>ROE: {roe}%</div>
+           <div className={`text-[9px] font-bold uppercase tracking-widest ${mutedColor}`}>Rev: +{stock.revenue_growth}%</div>
         </div>
       </div>
 
-      {/* 中：訊號 */}
-      <div className={`w-full lg:w-1/4 flex flex-col items-center py-4 lg:py-0`}>
-        <span className={`text-2xl lg:text-3xl font-black italic tracking-tighter uppercase ${currentStyle.signalColor}`}>
+      {/* 中間：信號 */}
+      <div className="flex flex-col items-start lg:items-center lg:justify-center lg:w-1/5 mb-6 lg:mb-0 min-w-0">
+        <span className={`text-3xl lg:text-4xl font-black italic tracking-tighter uppercase whitespace-nowrap ${currentStyle.signalColor}`}>
           {quant.signal}
         </span>
-        <div className={`mono-text text-[9px] uppercase font-bold tracking-[0.2em] opacity-50 ${textColor}`}>
-          AI Index: {stock.ai_score || 0}
+        <div className={`mt-2 mono-text text-[9px] uppercase font-bold tracking-[0.2em] opacity-50 ${textColor}`}>
+          Score: {score}
         </div>
       </div>
 
-      {/* 右：理由 */}
-      <div className="w-full lg:w-1/3 flex flex-col">
-        <p className={`text-sm lg:text-base font-medium leading-relaxed italic border-l-2 pl-4 ${isPortfolio && quant.color === 'rose' ? 'text-rose-100 border-rose-300' : 'text-slate-600 border-slate-200'}`}>
+      {/* 右側：動態理由 */}
+      <div className="flex flex-col lg:w-1/3 min-w-0 mb-6 lg:mb-0 lg:px-8 border-l border-slate-50 lg:border-slate-100">
+        <p className={`text-sm lg:text-base font-medium leading-relaxed italic line-clamp-2 ${isPortfolio && quant.color === 'rose' ? 'text-rose-50' : 'text-slate-500'}`}>
           「{quant.reason}」
         </p>
       </div>
 
-      {/* 數據區 */}
-      <div className="w-full lg:w-auto mt-4 lg:mt-0 lg:ml-6 flex items-center justify-end gap-8">
+      {/* 數據看板 */}
+      <div className="flex items-center justify-between lg:justify-end gap-10 lg:ml-auto flex-shrink-0">
         {isPortfolio ? (
-          <div className="flex gap-8 items-center">
+          <div className="flex gap-10 items-center">
             <div className="text-right">
-              <div className={`mono-text text-[9px] uppercase ${isPortfolio && quant.color === 'rose' ? 'text-rose-200' : 'text-slate-400'}`}>成本</div>
-              <div className={`text-lg font-bold ${textColor}`}>${buyPrice}</div>
+              <div className={`mono-text text-[9px] uppercase ${mutedColor} mb-1 tracking-widest`}>Cost</div>
+              <div className={`text-2xl font-black ${textColor}`}>${buyPrice}</div>
             </div>
             <div className="text-right">
-              <div className={`mono-text text-[9px] uppercase ${isPortfolio && quant.color === 'rose' ? 'text-rose-200' : 'text-slate-400'}`}>報酬</div>
-              <div className={`text-2xl font-black flex items-center gap-2 ${returnPercent >= 0 ? (isPortfolio && quant.color === 'rose' ? 'text-white' : 'text-emerald-500') : (isPortfolio && quant.color === 'rose' ? 'text-white' : 'text-rose-600')}`}>
-                {returnPercent >= 0 ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+              <div className={`mono-text text-[9px] uppercase ${mutedColor} mb-1 tracking-widest`}>Alpha</div>
+              <div className={`text-3xl font-black flex items-center justify-end gap-2 ${returnPercent >= 0 ? (isPortfolio && quant.color === 'rose' ? 'text-white' : 'text-emerald-500') : (isPortfolio && quant.color === 'rose' ? 'text-white' : 'text-white')}`}>
+                {returnPercent >= 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
                 {returnPercent?.toFixed(1)}%
               </div>
             </div>
           </div>
         ) : (
           <div className="text-right">
-            <div className="mono-text text-[9px] uppercase text-slate-400">目前股價</div>
-            <div className="text-2xl font-black text-slate-900">${stock.close_price}</div>
+            <div className="mono-text text-[9px] uppercase text-slate-300 mb-1 tracking-widest">Quote</div>
+            <div className="text-3xl font-black text-slate-900">${stock.close_price}</div>
           </div>
         )}
-        <ArrowRight size={24} className={`${isPortfolio && quant.color === 'rose' ? 'text-rose-200' : 'text-slate-300'} group-hover:translate-x-2 transition-all`} />
+        <ArrowRight size={28} className={`${mutedColor} group-hover:translate-x-3 transition-all duration-300 hidden lg:block`} />
       </div>
     </div>
   );

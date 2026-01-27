@@ -2,15 +2,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   RefreshCw, X, Plus, ShieldAlert, CheckCircle2, ArrowRight, LogOut, Loader2,
-  Sparkles, Quote, AlertTriangle
+  Sparkles, Quote, AlertTriangle, TrendingDown, Clock, BarChart3, Mail, Lock
 } from 'lucide-react';
-import { DashboardState, DailyAnalysis, PortfolioItem } from './types';
+import { DashboardState, DailyAnalysis } from './types';
 import { fetchDailyAnalysis, fetchPortfolio, addToPortfolio, deleteFromPortfolio, supabase, signOut } from './services/supabase';
 import { ActionCard } from './components/StockCard';
 import { GoogleGenAI } from "@google/genai";
 import { format } from 'date-fns';
 
-// 修正 App 元件：補全被截斷的邏輯、回傳 JSX 並導出元件
 const App: React.FC = () => {
   // Auth 狀態
   const [session, setSession] = useState<any>(null);
@@ -28,234 +27,148 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<'daily' | 'portfolio'>('daily');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newHolding, setNewHolding] = useState({ code: '', name: '', price: '', qty: '' });
-  const [selectedStock, setSelectedStock] = useState<DailyAnalysis | null>(null);
-
-  // AI 狀態
   const [aiReport, setAiReport] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
-  // 監聽 Auth 狀態
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // 載入儀表板資料
-  const loadData = useCallback(async () => {
-    if (!session) return;
-    setState(prev => ({ ...prev, loading: true }));
-    try {
-      const [analysis, portfolio] = await Promise.all([
-        fetchDailyAnalysis(),
-        fetchPortfolio()
-      ]);
-      setState({
-        data: analysis,
-        portfolio: portfolio,
-        loading: false,
-        error: null,
-        lastUpdated: new Date(),
-        topPickCode: analysis[0]?.stock_code || null
-      });
-    } catch (err: any) {
-      setState(prev => ({ ...prev, loading: false, error: err.message }));
-    }
-  }, [session]);
-
-  useEffect(() => {
-    if (session) {
-      loadData();
-    }
-  }, [session, loadData]);
-
   /**
-   * 1. 核心量化演算法引擎 - 實作「一票否決」安全機制 (Veto System)
-   * 確保投資建議 100% 基於真實數據，防止誤導。
+   * 股神級決策引擎 (The Brain)
    */
-  const calculateTradeSignal = useCallback((stock: DailyAnalysis) => {
+  const calculateTradeSignal = useCallback((stock: DailyAnalysis, isPortfolioItem = false, buyPrice?: number) => {
     const score = stock.ai_score ?? 0;
+    const prevScore = stock.previous_ai_score ?? score;
     const roe = stock.roe ?? 0;
-    const growth = stock.revenue_growth ?? 0;
-    const technical = stock.technical_signal || "";
+    const turnover = stock.turnover_value ?? 0;
+    const revenueGrowth = stock.revenue_growth ?? 0;
+    const isScoreDeclining = score < prevScore;
     
-    const hasFundamentalData = stock.roe !== undefined && stock.revenue_growth !== undefined;
-    
-    // --- 數據缺失處理 ---
-    if (!hasFundamentalData) {
-      return { 
-        signal: "數據缺失", 
-        color: "slate" as const, 
-        reason: "基本面數據不足（ROE/營收增長缺失），建議僅作技術面極短線參考。", 
-        isAlert: false, 
-        isAnomaly: true 
-      };
+    // 1. 絕對止損 (Hard Exit) - 庫存保護機制
+    if (isPortfolioItem && buyPrice) {
+      const dropPercent = ((stock.close_price - buyPrice) / buyPrice) * 100;
+      if (dropPercent <= -5 && isScoreDeclining) {
+        return { 
+          signal: "絕對止損 (EXIT)", 
+          color: "rose" as const, 
+          reason: `最後防線：跌幅達 ${dropPercent.toFixed(1)}% 且 AI 評分走弱。立即撤退，嚴防持續失血。`, 
+          isAlert: true,
+          trend: 'down' as const
+        };
+      }
     }
 
-    // --- 一票否決 (Veto System)：禁止誤導 ---
-    // ROE <= 0 絕對禁止顯示強力買進
-    if (roe <= 0) {
-      return { 
-        signal: "觀察中", 
-        color: "slate" as const, 
-        reason: `獲利能力喪失 (ROE ${roe}%)。目前不具備買進資格，無論評分多高，需等待基本面改善。`, 
-        isAlert: false, 
-        isAnomaly: true 
-      };
-    }
-
-    // --- 風險降級：ROE <= 5% 判定為短線炒作，無視 AI 分數 ---
-    if (roe <= 5) {
-      return { 
-        signal: "短線警告", 
-        color: "slate" as const, 
-        reason: `獲利體質薄弱 (ROE ${roe}%)。目前強勢純屬技術面炒作，長期配置風險極高。`, 
-        isAlert: false, 
-        isAnomaly: true 
-      };
-    }
-
-    // --- 賣出訊號 (Sell Logic) ---
-    if (score < 60 || growth < -20 || technical.includes("死亡交叉")) {
-      return { 
-        signal: "建議賣出", 
-        color: "rose" as const, 
-        reason: growth < -20 ? "營收出現顯著衰退，基本面支撐力道已崩潰。" : "AI 綜合評價低於安全門檻，技術趨勢已轉弱。", 
-        isAlert: true, 
-        isAnomaly: false 
-      };
-    }
-
-    // --- 買進訊號 (Buy Logic) ---
-    if (score >= 85 && roe > 15 && growth > 15) {
+    // 2. 強力買進 (Strong Buy) - 獲利金三角
+    if (score >= 85 && roe >= 12 && turnover > 50000000) {
       return { 
         signal: "強力買進", 
         color: "emerald" as const, 
-        reason: "基本面與技術面雙重共振。高獲利能力與高成長動能契合，動能強勁。", 
-        isAlert: false, 
-        isAnomaly: false 
+        reason: `頂級標的：獲利卓越 (ROE ${roe}%) 且有大額資金 (${(turnover/1000000).toFixed(0)}M) 背書，動能極強。`, 
+        isAlert: false,
+        trend: (isScoreDeclining ? 'down' : 'up') as "up" | "down" | "stable"
       };
     }
 
-    if (roe > 15) {
+    // 3. 轉機觀察 (Turnover Watch) - 捕捉黑馬
+    if (roe <= 0 && revenueGrowth > 30) {
       return { 
-        signal: "績優持有", 
+        signal: "轉機觀察", 
+        color: "amber" as const, 
+        reason: `黑馬訊號：雖尚未獲利 (ROE ${roe}%)，但營收年增達 ${revenueGrowth}%。生意爆發中，可小量試單。`, 
+        isAlert: false,
+        trend: 'up' as const
+      };
+    }
+
+    // 4. 投機警告 (Anomaly) - 防止炒作陷阱
+    if (roe < 5 && score >= 70) {
+      return { 
+        signal: "投機警告", 
+        color: "slate" as const, 
+        reason: `獲利支撐不足 (ROE 僅 ${roe}%)。當前高分主要源於技術面，嚴禁重倉，謹防拉高出貨。`, 
+        isAlert: false,
+        trend: (isScoreDeclining ? 'down' : 'stable') as "up" | "down" | "stable"
+      };
+    }
+
+    // 基本偏多
+    if (score >= 70) {
+      return { 
+        signal: "偏多操作", 
         color: "emerald" as const, 
-        reason: `獲利能力卓越 (ROE ${roe}%)，具備長期穩定投資價值。`, 
-        isAlert: false, 
-        isAnomaly: false 
+        reason: isScoreDeclining ? "技術面獲利了結壓力增加，觀察回測支撐。" : "營收支撐穩定，趨勢上行中。", 
+        isAlert: false,
+        trend: (isScoreDeclining ? 'down' : 'up') as "up" | "down" | "stable"
       };
     }
 
     return { 
-      signal: "中性", 
+      signal: "建議觀望", 
       color: "slate" as const, 
-      reason: "數據表現平穩，未見極端交易信號。建議按計畫持股，分批佈局。", 
-      isAlert: false, 
-      isAnomaly: false 
+      reason: "指標尚不明確，耐心等待更好的進場點位。", 
+      isAlert: false,
+      trend: 'stable' as const
     };
   }, []);
 
   /**
-   * 2. AI 深度報告 - 批判性 Prompt 與最新 SDK 規範
+   * 時效性標籤邏輯
+   */
+  const getMarketStatus = useCallback((updatedAt?: string) => {
+    if (!updatedAt) return { label: "SCANNING", color: "bg-slate-300" };
+    const date = new Date(updatedAt);
+    const hour = date.getHours();
+    const minute = date.getMinutes();
+    const timeValue = hour * 100 + minute;
+    // 台灣股市盤中 9:00 - 13:30
+    if (timeValue >= 900 && timeValue <= 1335) {
+      return { label: "LIVE 盤中即時", color: "bg-emerald-500 animate-pulse" };
+    }
+    return { label: "SETTLED 收盤結算", color: "bg-blue-600" };
+  }, []);
+
+  /**
+   * AI 首席分析官深度整合
    */
   const handleAiInsight = async (stock: DailyAnalysis | DailyAnalysis[]) => {
     setIsAiLoading(true);
     setAiReport(null);
     setIsReportModalOpen(true);
-    
     try {
-      // 依照規範使用 process.env.API_KEY
       const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API });
+      const today = new Date().toLocaleDateString('zh-TW');
       let prompt = "";
 
       if (Array.isArray(stock)) {
-        // 生成戰略簡報
-        const top5 = stock.slice(0, 5).map(s => `${s.stock_name} (ROE: ${s.roe}%, 分數: ${s.ai_score})`).join(', ');
-        prompt = `
-          你是首席投資策略師。根據今日強勢股數據：${top5}。
-          特別指令：
-          1. 批判性審查：若發現 ROE 低於 5% 卻榜上有名，務必批判性指出這是投機風險，而非基本面增長。
-          2. 市場分析：分析數據背後的邏輯是否矛盾。
-          3. 語氣冷靜且專業，直接向 CEO 報告今日戰局。
-          請用繁體中文。
-        `;
+        const dataStr = stock.slice(0, 5).map(s => `${s.stock_name}(ROE:${s.roe}%, 營收成長:${s.revenue_growth}%, AI:${s.ai_score})`).join(', ');
+        prompt = `你是首席分析師。日期：${today}。今日前五標的：${dataStr}。
+        分析要求：
+        1. 針對這五張標的進行「巴菲特式」的數據比對，特別分析「ROE 與 營收成長」是否存在矛盾。
+        2. 揪出虛假繁榮：若標的營收噴發但 ROE 極低，必須揭穿其投機本質並嚴厲警告風險。
+        3. 給出 CEO 級別的資金配置戰略。語氣直白、專業、具備洞察力。繁體中文。`;
       } else {
-        // 單股深度解讀
-        prompt = `
-          請深度解讀股票「${stock.stock_name}」。
-          當前指標：ROE ${stock.roe}%，營收成長率 ${stock.revenue_growth}%，AI 評分 ${stock.ai_score}，技術信號：${stock.technical_signal}。
-          
-          批判性指令：
-          1. 數據審核：若數據異常（如 ROE 為 0 或營收負成長但評分卻高），務必揭露這可能是「拉高出貨 (Pump and Dump)」的風險。
-          2. 現實核查：若 ROE 低於 5%，請嚴厲提醒 CEO 該公司缺乏獲利體質。
-          3. 決策建議：提供 3 個基於數據的具體執行點。
-          請用繁體中文，格式請簡明扼要且專業。
-        `;
+        prompt = `深度分析標的：「${stock.stock_name}」。ROE ${stock.roe}%，營收成長 ${stock.revenue_growth}%，AI 分數 ${stock.ai_score}。
+        首席指令：
+        1. 矛盾點分析：ROE 指標與營收成長是否匹配？這間公司是真的在賺錢還是在虛增規模？
+        2. 風險決策：根據數據，這屬於「強力買進」、「黑馬試單」還是「投機陷阱」？
+        3. 以直白、精煉、甚至帶點毒舌的巴菲特風格撰寫。繁體中文。`;
       }
 
-      // 依照規範使用 ai.models.generateContent
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3-pro-preview',
         contents: prompt,
       });
-
-      // 依照規範使用 .text 屬性
-      setAiReport(response.text || "無法獲取 AI 分析報告。");
+      setAiReport(response.text);
     } catch (err) {
-      console.error(err);
-      setAiReport("分析系統暫時離線。請確認 API 金鑰有效性並重試。");
+      setAiReport("分析引擎暫時無法連線。");
     } finally {
       setIsAiLoading(false);
     }
   };
 
-  // 3. 決策矩陣運算 (動態文案判定)
-  const decisionMatrix = useMemo(() => {
-    const today = state.data;
-    const topPick = today.length > 0 ? today.reduce((prev, curr) => ((prev.ai_score || 0) > (curr.ai_score || 0)) ? prev : curr) : null;
-    
-    // 動態文案判定
-    const getTopPickLabel = (s: DailyAnalysis | null) => {
-      if (!s) return "掃描中...";
-      if (s.roe === undefined) return "技術面驅動分析";
-      if (s.roe > 15) return "獲利能力頂尖";
-      if (s.roe >= 5) return "基本面穩健";
-      return "數據異常/投機風險警告";
-    };
-
-    const portfolioDetails = state.portfolio.map(item => {
-      const market = today.find(d => d.stock_code === item.stock_code);
-      const currentPrice = market?.close_price || item.buy_price;
-      const profitLossPercent = ((currentPrice - item.buy_price) / item.buy_price) * 100;
-      
-      // 使用統一量化引擎
-      const quant = market ? calculateTradeSignal(market) : { signal: "持股", color: "slate" as const, reason: "尚無數據", isAlert: false, isAnomaly: false };
-
-      return {
-        ...item,
-        currentPrice,
-        aiScore: market?.ai_score || 0,
-        returnPercent: profitLossPercent,
-        quant,
-        isAlert: quant.isAlert
-      };
-    });
-
-    return { 
-      topPick, 
-      topPickLabel: getTopPickLabel(topPick),
-      portfolioDetails, 
-      alerts: portfolioDetails.filter(p => p.isAlert) 
-    };
-  }, [state.data, state.portfolio, calculateTradeSignal]);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,7 +178,8 @@ const App: React.FC = () => {
       if (authMode === 'signup') {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        alert('註冊成功！請至信箱收取驗證信。');
+        alert("註冊成功。");
+        setAuthMode('login');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -277,336 +191,250 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAddToPortfolio = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const loadData = useCallback(async () => {
+    if (!session) return;
+    setState(prev => ({ ...prev, loading: true }));
     try {
-      await addToPortfolio(newHolding.code, newHolding.name, Number(newHolding.price), Number(newHolding.qty));
-      setIsAddModalOpen(false);
-      setNewHolding({ code: '', name: '', price: '', qty: '' });
-      loadData();
+      const [marketData, portfolioData] = await Promise.all([fetchDailyAnalysis(), fetchPortfolio()]);
+      setState({ data: marketData, portfolio: portfolioData, loading: false, error: null, lastUpdated: new Date(), topPickCode: marketData[0]?.stock_code || null });
     } catch (err: any) {
-      alert(err.message);
+      setState(prev => ({ ...prev, loading: false, error: err.message }));
     }
-  };
+  }, [session]);
 
-  if (!session) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-sm shadow-2xl p-8 border border-slate-200">
-          <div className="flex items-center gap-2 mb-8">
-            <ShieldAlert className="text-slate-900" size={32} />
-            <h1 className="text-2xl font-black italic tracking-tighter uppercase">Quantum AI Advisor</h1>
-          </div>
-          <form onSubmit={handleAuth} className="space-y-4">
-            <div>
-              <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Email</label>
-              <input 
-                type="email" 
-                value={email} 
-                onChange={e => setEmail(e.target.value)} 
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:outline-none focus:border-slate-900 transition-all text-sm font-medium" 
-                required 
-              />
+  useEffect(() => { if (session) loadData(); }, [session, loadData]);
+
+  const decisionMatrix = useMemo(() => {
+    const today = state.data;
+    const topPick = today.length > 0 ? today.reduce((prev, curr) => (prev.ai_score! > curr.ai_score!) ? prev : curr) : null;
+    const portfolioDetails = state.portfolio.map(item => {
+      const market = today.find(d => d.stock_code === item.stock_code);
+      const quant = market ? calculateTradeSignal(market, true, item.buy_price) : null;
+      return { ...item, currentPrice: market?.close_price || item.buy_price, returnPercent: market ? ((market.close_price - item.buy_price) / item.buy_price) * 100 : 0, quant, marketData: market };
+    });
+    return { topPick, portfolioDetails, alerts: portfolioDetails.filter(p => p.quant?.isAlert) };
+  }, [state.data, state.portfolio, calculateTradeSignal]);
+
+  if (!session) return (
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[#fcfcfc]">
+      <div className="w-full max-w-[480px] bg-white p-12 lg:p-16 border border-slate-100 shadow-2xl rounded-sm">
+        <div className="mb-14">
+          <div className="mono-text text-rose-500 text-[10px] font-black uppercase tracking-[0.4em] mb-4">Security Protocol</div>
+          <h1 className="text-5xl lg:text-6xl font-black italic tracking-tighter uppercase leading-[0.85] mb-2 text-slate-900">
+            Executive<br />Protocol.
+          </h1>
+        </div>
+        <form onSubmit={handleAuth} className="space-y-8">
+          <div className="relative group">
+            <label className="mono-text text-[9px] font-bold uppercase text-slate-400 group-focus-within:text-slate-900 transition-colors">Email Address</label>
+            <div className="flex items-center gap-3 border-b border-slate-200 py-2 group-focus-within:border-slate-900 transition-all">
+              <Mail size={16} className="text-slate-300" />
+              <input type="email" required className="w-full bg-transparent outline-none font-bold text-slate-900 placeholder:text-slate-200" value={email} onChange={e => setEmail(e.target.value)} />
             </div>
-            <div>
-              <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Password</label>
-              <input 
-                type="password" 
-                value={password} 
-                onChange={e => setPassword(e.target.value)} 
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:outline-none focus:border-slate-900 transition-all text-sm font-medium" 
-                required 
-              />
-            </div>
-            {authError && <p className="text-rose-600 text-xs font-bold">{authError}</p>}
-            <button 
-              type="submit" 
-              disabled={authLoading}
-              className="w-full bg-slate-900 text-white py-4 font-black uppercase tracking-widest hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
-            >
-              {authLoading ? <Loader2 className="animate-spin" /> : (authMode === 'login' ? 'Login' : 'Sign Up')}
-            </button>
-          </form>
-          <div className="mt-6 text-center">
-            <button 
-              onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
-              className="text-[10px] font-black uppercase text-slate-400 hover:text-slate-900 transition-all"
-            >
-              {authMode === 'login' ? "Don't have an account? Sign Up" : "Already have an account? Login"}
-            </button>
           </div>
+          <div className="relative group">
+            <label className="mono-text text-[9px] font-bold uppercase text-slate-400 group-focus-within:text-slate-900 transition-colors">Password</label>
+            <div className="flex items-center gap-3 border-b border-slate-200 py-2 group-focus-within:border-slate-900 transition-all">
+              <Lock size={16} className="text-slate-300" />
+              <input type="password" required className="w-full bg-transparent outline-none font-bold text-slate-900 placeholder:text-slate-200" value={password} onChange={e => setPassword(e.target.value)} />
+            </div>
+          </div>
+          {authError && <p className="text-rose-600 font-bold text-[10px] uppercase tracking-wider">{authError}</p>}
+          <button type="submit" disabled={authLoading} className="w-full py-5 bg-slate-950 text-white font-black text-xs uppercase tracking-[0.3em] hover:bg-rose-600 transition-all shadow-lg">
+            {authLoading ? <Loader2 className="animate-spin mx-auto" size={18} /> : (authMode === 'login' ? 'Authenticate' : 'Request Credentials')}
+          </button>
+        </form>
+        <div className="mt-12 text-center border-t border-slate-50 pt-8">
+          <button onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')} className="mono-text text-[10px] font-bold uppercase text-slate-400 hover:text-slate-900 tracking-widest transition-all">
+            {authMode === 'login' ? "New Executive? Sign Up" : "Existing Member? Sign In"}
+          </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-[#fafafa] text-slate-900 selection:bg-slate-900 selection:text-white font-sans">
-      <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <ShieldAlert size={28} className="text-slate-900" />
-          <div className="flex flex-col">
-            <span className="text-xl font-black italic tracking-tighter uppercase leading-none">Quantum AI</span>
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Decision Matrix v2.5</span>
-          </div>
+    <div className="min-h-screen bg-[#fafafa] text-slate-950 selection:bg-slate-900 selection:text-white">
+      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 px-6 lg:px-12 py-5 flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <BarChart3 size={24} className="text-slate-900" />
+          <h1 className="text-xl font-black italic tracking-tighter uppercase leading-none">Quantum Insight.</h1>
         </div>
-        <div className="flex items-center gap-6">
-          <button 
-            onClick={() => signOut()}
-            className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400 hover:text-rose-600 transition-all"
-          >
-            <LogOut size={14} /> Logout
-          </button>
-        </div>
+        <button onClick={() => signOut()} className="mono-text text-[10px] font-bold uppercase text-slate-400 hover:text-rose-500 transition-colors">Logout</button>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-6 py-12">
-        <div className="mb-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 bg-slate-900 rounded-sm p-10 text-white relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-all duration-700">
-              <Sparkles size={120} />
+      <main className="max-w-[1400px] mx-auto px-6 lg:px-12 py-12 lg:py-20">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-16 mb-24 lg:mb-32">
+          <div className="lg:col-span-2 bg-white p-10 lg:p-14 border border-slate-100 shadow-xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+              <Sparkles size={160} />
             </div>
             <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="bg-emerald-500 text-white text-[9px] font-black px-2 py-1 rounded-sm uppercase tracking-widest">
-                  今日最佳首選
-                </span>
-                <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                  {decisionMatrix.topPickLabel}
-                </span>
+              <div className="flex items-center gap-3 mb-8">
+                <span className="bg-emerald-500 text-white text-[9px] font-black uppercase px-2 py-1 tracking-widest">Priority Selection</span>
+                <span className="mono-text text-[10px] uppercase text-slate-400 tracking-widest">{format(new Date(), 'yyyy / MM / dd')}</span>
               </div>
-              <h2 className="text-5xl lg:text-7xl font-black italic tracking-tighter uppercase mb-2">
-                {decisionMatrix.topPick?.stock_name || '掃描中'}
+              <h2 className="text-6xl lg:text-8xl font-black italic tracking-tighter uppercase mb-10 leading-[0.85] text-slate-900 break-words">
+                {decisionMatrix.topPick?.stock_name || 'Scanning...'}
               </h2>
-              <div className="flex items-center gap-6 mb-8">
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-black text-slate-500 uppercase">AI Score</span>
-                  <span className="text-3xl font-black">{decisionMatrix.topPick?.ai_score || 0}</span>
-                </div>
-                <div className="flex flex-col border-l border-slate-700 pl-6">
-                  <span className="text-[9px] font-black text-slate-500 uppercase">ROE</span>
-                  <span className="text-3xl font-black">{decisionMatrix.topPick?.roe || 0}%</span>
-                </div>
-              </div>
-              <button 
-                onClick={() => decisionMatrix.topPick && handleAiInsight(decisionMatrix.topPick)}
-                className="bg-white text-slate-900 px-8 py-4 text-xs font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all flex items-center gap-2"
-              >
-                獲取深度分析 <ArrowRight size={14} />
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white border border-slate-200 p-8 flex flex-col justify-between">
-            <div>
-              <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
-                <CheckCircle2 size={14} /> 策略概覽
-              </h3>
-              <div className="space-y-6">
+              <div className="flex gap-12 mb-12 border-t border-slate-50 pt-10">
                 <div>
-                  <div className="text-[9px] font-black text-slate-400 uppercase mb-1">警示標的</div>
-                  <div className="text-4xl font-black text-rose-600">{decisionMatrix.alerts.length}</div>
+                  <div className="text-[10px] font-bold uppercase text-slate-400 mb-2 tracking-widest">ROE Efficiency</div>
+                  <div className="text-4xl lg:text-5xl font-black text-slate-900">{decisionMatrix.topPick?.roe}%</div>
                 </div>
-                <button 
-                  onClick={() => handleAiInsight(state.data)}
-                  className="text-[10px] font-black uppercase text-slate-900 underline underline-offset-4 hover:text-emerald-500 transition-all"
-                >
-                  生成全市場戰報
-                </button>
+                <div className="border-l border-slate-100 pl-12">
+                  <div className="text-[10px] font-bold uppercase text-slate-400 mb-2 tracking-widest">AI Confidence</div>
+                  <div className="text-4xl lg:text-5xl font-black text-slate-900">{decisionMatrix.topPick?.ai_score}</div>
+                </div>
               </div>
-            </div>
-            <div className="pt-8 border-t border-slate-100 flex items-center justify-between text-[9px] font-black uppercase text-slate-400">
-              <span>Last Sync: {state.lastUpdated ? format(state.lastUpdated, 'HH:mm:ss') : '--:--'}</span>
-              <button onClick={loadData} className="hover:text-slate-900 transition-all flex items-center gap-1">
-                <RefreshCw size={10} /> Refresh
+              <button onClick={() => decisionMatrix.topPick && handleAiInsight(decisionMatrix.topPick)} className="bg-slate-950 text-white px-10 py-5 text-xs font-black uppercase tracking-[0.3em] hover:bg-emerald-500 transition-all flex items-center gap-4">
+                Launch Alpha Analysis <ArrowRight size={16} />
               </button>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-12 mb-10 border-b border-slate-200">
-          <button 
-            onClick={() => setActiveView('daily')}
-            className={`pb-4 text-sm font-black uppercase tracking-[0.2em] transition-all relative ${activeView === 'daily' ? 'text-slate-900' : 'text-slate-300 hover:text-slate-400'}`}
-          >
-            每日 AI 市場分析
-            {activeView === 'daily' && <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-900" />}
-          </button>
-          <button 
-            onClick={() => setActiveView('portfolio')}
-            className={`pb-4 text-sm font-black uppercase tracking-[0.2em] transition-all relative ${activeView === 'portfolio' ? 'text-slate-900' : 'text-slate-300 hover:text-slate-400'}`}
-          >
-            我的投資組合 ({state.portfolio.length})
-            {activeView === 'portfolio' && <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-900" />}
-          </button>
-        </div>
-
-        {state.loading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
-            <Loader2 className="animate-spin text-slate-200" size={48} />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">系統運算中...</span>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {activeView === 'daily' ? (
-              state.data.map((stock) => (
-                <ActionCard 
-                  key={stock.id} 
-                  stock={stock} 
-                  quant={calculateTradeSignal(stock)}
-                  onSelect={() => handleAiInsight(stock)}
-                />
-              ))
-            ) : (
-              <>
-                <div className="flex justify-end mb-6">
-                  <button 
-                    onClick={() => setIsAddModalOpen(true)}
-                    className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 transition-all"
-                  >
-                    <Plus size={14} /> 新增持股
-                  </button>
-                </div>
-                {decisionMatrix.portfolioDetails.map((item) => (
-                  <div key={item.id} className="relative group">
-                    <button 
-                      onClick={() => deleteFromPortfolio(item.id).then(loadData)}
-                      className="absolute -top-2 -right-2 z-10 bg-white border border-slate-200 text-slate-300 hover:text-rose-600 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-all"
-                    >
-                      <X size={14} />
-                    </button>
-                    <ActionCard 
-                      stock={{
-                        ...state.data.find(d => d.stock_code === item.stock_code)!,
-                        stock_name: item.stock_name,
-                        stock_code: item.stock_code
-                      } as DailyAnalysis}
-                      quant={item.quant}
-                      isPortfolio
-                      buyPrice={item.buy_price}
-                      returnPercent={item.returnPercent}
-                      onSelect={() => {
-                        const market = state.data.find(d => d.stock_code === item.stock_code);
-                        if (market) handleAiInsight(market);
-                      }}
-                    />
+          <div className="bg-white p-10 lg:p-14 border border-slate-100 shadow-xl flex flex-col justify-between">
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-300 mb-10 flex items-center gap-3">
+                <ShieldAlert size={14} /> Risk Monitor
+              </h3>
+              <div className="space-y-8">
+                {decisionMatrix.alerts.length > 0 ? (
+                  decisionMatrix.alerts.map(a => (
+                    <div key={a.id} className="flex items-center gap-4 border-b border-slate-50 pb-4">
+                      <div className="w-2 h-2 bg-rose-600 rounded-full animate-pulse"></div>
+                      <div className="text-2xl font-black italic uppercase tracking-tighter text-slate-900 truncate">{a.stock_name}</div>
+                      <div className="text-[9px] font-bold text-rose-600 uppercase ml-auto">🚨 Hard Exit</div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex items-center gap-6 py-6">
+                    <CheckCircle2 size={32} className="text-emerald-500" />
+                    <div className="text-2xl font-black italic uppercase tracking-tighter text-slate-900 leading-none">Status: Secure</div>
                   </div>
-                ))}
-              </>
-            )}
+                )}
+              </div>
+            </div>
+            <button onClick={() => handleAiInsight(state.data)} className="w-full py-4 mt-12 border border-slate-900 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-900 hover:text-white transition-all">
+              Market War-Room Summary
+            </button>
           </div>
-        )}
+        </div>
+
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-16 border-b border-slate-100 pb-10 gap-8">
+          <div className="flex gap-12">
+            <button onClick={() => setActiveView('daily')} className={`text-sm font-black uppercase tracking-widest pb-4 transition-all relative ${activeView === 'daily' ? 'text-slate-900' : 'text-slate-300 hover:text-slate-500'}`}>
+              Signals
+              {activeView === 'daily' && <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-950"></div>}
+            </button>
+            <button onClick={() => setActiveView('portfolio')} className={`text-sm font-black uppercase tracking-widest pb-4 transition-all relative ${activeView === 'portfolio' ? 'text-slate-900' : 'text-slate-300 hover:text-slate-500'}`}>
+              Portfolio ({state.portfolio.length})
+              {activeView === 'portfolio' && <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-950"></div>}
+            </button>
+          </div>
+          <div className="flex items-center gap-6">
+             {activeView === 'portfolio' && (
+               <button onClick={() => setIsAddModalOpen(true)} className="px-8 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 transition-colors">Add Position</button>
+             )}
+             <button onClick={loadData} className="p-3 bg-white border border-slate-100 text-slate-400 hover:text-slate-900 shadow-sm transition-all">
+               <RefreshCw size={20} className={state.loading ? 'animate-spin' : ''} />
+             </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6">
+          {activeView === 'daily' ? (
+            state.data.map(stock => {
+              const quant = calculateTradeSignal(stock);
+              const status = getMarketStatus(stock.updated_at);
+              return (
+                <div key={stock.id} className="relative">
+                   <div className={`absolute top-4 left-8 z-10 flex items-center gap-2 px-2 py-1 ${status.color} text-white text-[8px] font-black uppercase rounded-sm shadow-sm`}>
+                     <Clock size={8} /> {status.label}
+                   </div>
+                   <ActionCard stock={stock} quant={quant} onSelect={() => handleAiInsight(stock)} />
+                </div>
+              );
+            })
+          ) : (
+            decisionMatrix.portfolioDetails.map(item => (
+              <div key={item.id} className="relative group">
+                <button onClick={(e) => { e.stopPropagation(); deleteFromPortfolio(item.id).then(loadData); }} className="absolute top-6 right-8 z-20 p-2 text-slate-200 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-all">
+                  <X size={20} />
+                </button>
+                {item.marketData ? (
+                  <ActionCard stock={item.marketData} quant={item.quant!} isPortfolio buyPrice={item.buy_price} returnPercent={item.returnPercent} onSelect={() => handleAiInsight(item.marketData!)} />
+                ) : (
+                  <div className="p-10 bg-white border border-slate-50 text-slate-300 text-center font-bold text-xs uppercase tracking-widest rounded-sm">Syncing Asset: {item.stock_name}...</div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
       </main>
 
+      {/* AI Report Modal */}
       {isReportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl rounded-sm">
-            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-slate-900 flex items-center justify-center">
-                  <Quote size={20} className="text-white" />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 lg:p-8 bg-slate-900/10 backdrop-blur-3xl">
+          <div className="w-full max-w-4xl bg-white p-10 lg:p-20 relative shadow-2xl overflow-y-auto max-h-[90vh] rounded-sm">
+            <button onClick={() => setIsReportModalOpen(false)} className="absolute top-8 right-8 p-3 hover:bg-slate-50 rounded-full transition-colors"><X size={24}/></button>
+            <div className="mono-text text-rose-500 text-[10px] font-black uppercase mb-12 tracking-[0.4em] flex items-center gap-3">
+               <Sparkles size={16}/> Alpha Analysis Report
+            </div>
+            {isAiLoading ? (
+              <div className="flex flex-col items-center justify-center py-24 gap-6">
+                <Loader2 size={48} className="animate-spin text-slate-100" />
+                <p className="mono-text text-[9px] uppercase font-black tracking-widest text-slate-300">Synthesizing Alpha Intelligence...</p>
+              </div>
+            ) : (
+              <div className="prose prose-slate max-w-none">
+                <Quote size={40} className="text-slate-50 fill-slate-50 mb-8" />
+                <div className="text-xl lg:text-2xl font-medium italic text-slate-800 leading-relaxed whitespace-pre-wrap font-serif">
+                  {aiReport}
                 </div>
-                <div>
-                  <h3 className="text-xl font-black italic uppercase tracking-tighter">AI 決策深度報告</h3>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Generative Analysis by Gemini</p>
+                <div className="mt-16 border-t border-slate-50 pt-10 flex justify-end">
+                   <button onClick={() => setIsReportModalOpen(false)} className="px-10 py-5 bg-slate-950 text-white font-black uppercase text-[10px] tracking-[0.3em] hover:bg-rose-600 transition-all">Dismiss Report</button>
                 </div>
               </div>
-              <button onClick={() => setIsReportModalOpen(false)} className="text-slate-300 hover:text-slate-900 transition-all">
-                <X size={24} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-10">
-              {isAiLoading ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-4">
-                  <Loader2 className="animate-spin text-slate-200" size={48} />
-                  <p className="text-[10px] font-black uppercase text-slate-400 animate-pulse">正在生成批判性見解...</p>
-                </div>
-              ) : (
-                <div className="prose prose-slate max-w-none prose-sm lg:prose-base">
-                  <div className="bg-slate-50 border-l-4 border-slate-900 p-6 mb-8 italic text-slate-600 font-medium text-sm">
-                    本報告由 AI 策略師生成。投資涉及風險，數據僅供決策參考，不構成法律建議。
-                  </div>
-                  <div className="whitespace-pre-wrap font-medium leading-relaxed text-slate-800">
-                    {aiReport}
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="p-6 border-t border-slate-100 flex justify-end">
-              <button 
-                onClick={() => setIsReportModalOpen(false)}
-                className="bg-slate-900 text-white px-10 py-4 text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
-              >
-                確認並返回
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}
 
+      {/* Add Asset Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/20 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md shadow-2xl rounded-sm p-8 border border-slate-200">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-xl font-black italic uppercase tracking-tighter">新增持股明細</h3>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-300 hover:text-slate-900">
-                <X size={24} />
-              </button>
-            </div>
-            <form onSubmit={handleAddToPortfolio} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">代碼</label>
-                  <input 
-                    type="text" 
-                    placeholder="2330.TW"
-                    value={newHolding.code} 
-                    onChange={e => setNewHolding({ ...newHolding, code: e.target.value })} 
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:outline-none focus:border-slate-900 transition-all text-sm font-bold uppercase" 
-                    required 
-                  />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/5 backdrop-blur-md">
+          <div className="w-full max-w-md bg-white p-12 lg:p-16 relative shadow-2xl rounded-sm">
+             <div className="flex justify-between items-center mb-12">
+                <h2 className="text-4xl font-black italic uppercase tracking-tighter leading-none">New<br />Asset.</h2>
+                <button onClick={() => setIsAddModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-full"><X size={24}/></button>
+             </div>
+             <form onSubmit={async (e) => {
+               e.preventDefault();
+               await addToPortfolio(newHolding.code, newHolding.name, Number(newHolding.price), Number(newHolding.qty));
+               setIsAddModalOpen(false);
+               loadData();
+             }} className="space-y-8">
+                <div className="group">
+                  <label className="mono-text text-[9px] font-bold uppercase text-slate-400 group-focus-within:text-slate-900">Ticker Code</label>
+                  <input type="text" placeholder="2330" className="w-full border-b border-slate-100 py-3 text-2xl font-black outline-none placeholder:text-slate-100 focus:border-slate-950 transition-colors" value={newHolding.code} onChange={e => setNewHolding({...newHolding, code: e.target.value})} />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">名稱</label>
-                  <input 
-                    type="text" 
-                    placeholder="台積電"
-                    value={newHolding.name} 
-                    onChange={e => setNewHolding({ ...newHolding, name: e.target.value })} 
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:outline-none focus:border-slate-900 transition-all text-sm font-bold" 
-                    required 
-                  />
+                <div className="group">
+                  <label className="mono-text text-[9px] font-bold uppercase text-slate-400 group-focus-within:text-slate-900">Company Name</label>
+                  <input type="text" placeholder="TSMC" className="w-full border-b border-slate-100 py-3 text-2xl font-black outline-none placeholder:text-slate-100 focus:border-slate-950 transition-colors" value={newHolding.name} onChange={e => setNewHolding({...newHolding, name: e.target.value})} />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">成本價</label>
-                  <input 
-                    type="number" 
-                    value={newHolding.price} 
-                    onChange={e => setNewHolding({ ...newHolding, price: e.target.value })} 
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:outline-none focus:border-slate-900 transition-all text-sm font-bold" 
-                    required 
-                  />
+                <div className="grid grid-cols-2 gap-10">
+                    <div className="group">
+                      <label className="mono-text text-[9px] font-bold uppercase text-slate-400 group-focus-within:text-slate-900">Cost</label>
+                      <input type="number" placeholder="0" className="w-full border-b border-slate-100 py-3 text-2xl font-black outline-none placeholder:text-slate-100 focus:border-slate-950 transition-colors" value={newHolding.price} onChange={e => setNewHolding({...newHolding, price: e.target.value})} />
+                    </div>
+                    <div className="group">
+                      <label className="mono-text text-[9px] font-bold uppercase text-slate-400 group-focus-within:text-slate-900">Qty</label>
+                      <input type="number" placeholder="0" className="w-full border-b border-slate-100 py-3 text-2xl font-black outline-none placeholder:text-slate-100 focus:border-slate-950 transition-colors" value={newHolding.qty} onChange={e => setNewHolding({...newHolding, qty: e.target.value})} />
+                    </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">股數</label>
-                  <input 
-                    type="number" 
-                    value={newHolding.qty} 
-                    onChange={e => setNewHolding({ ...newHolding, qty: e.target.value })} 
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:outline-none focus:border-slate-900 transition-all text-sm font-bold" 
-                    required 
-                  />
-                </div>
-              </div>
-              <button 
-                type="submit" 
-                className="w-full bg-slate-900 text-white py-4 text-xs font-black uppercase tracking-widest hover:bg-emerald-500 transition-all"
-              >
-                確認加入投資組合
-              </button>
-            </form>
+                <button type="submit" className="w-full py-6 bg-slate-950 text-white font-black uppercase tracking-[0.3em] hover:bg-emerald-500 transition-all shadow-lg mt-4">Authorize Position</button>
+             </form>
           </div>
         </div>
       )}
