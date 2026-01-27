@@ -5,11 +5,13 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  // 關鍵：告訴 Vite 允許讀取 NEXT_PUBLIC_ 開頭的環境變數，配合 Vercel/Next.js 標準
+  // 讓 Vite 將 process.env 注入到全域變數，解決 tsc 編譯及執行時期的 process 未定義問題
+  define: {
+    'process.env': {}
+  },
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   resolve: {
     alias: {
-      // Fix: Use path.resolve('.') to resolve the current working directory without type errors on the 'process' object.
       '@': path.resolve('.'),
     }
   },

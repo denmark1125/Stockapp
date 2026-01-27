@@ -40,7 +40,6 @@ const App: React.FC = () => {
     try {
       const [marketData, portfolioData] = await Promise.all([fetchDailyAnalysis(), fetchPortfolio()]);
       
-      // 尋找最後掃描時間 (從 Python 更新的欄位中找出最新的一筆)
       let latestDate = new Date(0);
       marketData.forEach(item => {
         const d = new Date(item.updated_at);
@@ -63,17 +62,14 @@ const App: React.FC = () => {
 
   useEffect(() => { if (session) loadData(); }, [session, loadData]);
 
-  // 關聯邏輯：庫藏股自動對齊 Python 掃描出的 AI 分數與風控數據
   const viewData = useMemo(() => {
     if (activeView === 'daily') {
       return state.data
         .filter(s => s.stock_code !== 'MARKET_BRIEF')
         .sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
     } else {
-      // 庫藏股模式：將 PortfolioItem 對應到 DailyAnalysis
       return state.portfolio.map(p => {
         const analysis = state.data.find(d => d.stock_code === p.stock_code);
-        // 如果有分析資料就合併，沒有就顯示基礎資訊
         return analysis ? { ...analysis, is_holding_item: true, portfolio_id: p.id, buy_price: p.buy_price } : {
           id: p.id,
           stock_code: p.stock_code,
@@ -95,8 +91,8 @@ const App: React.FC = () => {
     setAiReport(null);
     setIsReportModalOpen(true);
     try {
-      // Create a new GoogleGenAI instance right before making an API call to ensure it always uses the most up-to-date configuration from the environment.
-      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+      // 依照 @google/genai 指南，必須直接使用 process.env.API_KEY 且不透過 ImportMeta
+      const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API });
       const prompt = `分析對象：${stock.stock_name} (${stock.stock_code})。
       當前 AI 評分：${stock.ai_score}。ROE：${stock.roe}%，營收增長：${stock.revenue_yoy}%。
       請根據這些數據提供 150 字內的深度審計評論，語氣需專業且精確，並指出風控關鍵點。`;
@@ -106,7 +102,6 @@ const App: React.FC = () => {
         contents: prompt,
         config: { systemInstruction: "你是一位頂尖的量化對沖基金審計師，專精於台股價值與動能分析。" }
       });
-      // Extract the generated text output directly using the .text property from GenerateContentResponse.
       setAiReport(response.text || "生成失敗。");
     } catch (err: any) {
       setAiReport(`審計失敗: ${err.message}`);
@@ -156,7 +151,6 @@ const App: React.FC = () => {
       <main className="max-w-[1000px] mx-auto px-6 py-12">
         <SystemStatus lastUpdated={state.lastUpdated} isSyncing={state.loading} />
 
-        {/* Hero Strategic Pick */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
           <div className="lg:col-span-2 bg-white p-10 border border-slate-100 shadow-sm relative overflow-hidden rounded-2xl group transition-all hover:shadow-md">
             <div className="absolute -top-10 -right-10 opacity-[0.02] group-hover:scale-110 transition-transform duration-700"><Trophy size={200} /></div>
@@ -185,7 +179,6 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Navigation Tabs */}
         <div className="flex justify-between items-center mb-10 border-b border-slate-100">
           <div className="flex gap-10">
             <button onClick={() => setActiveView('daily')} className={`text-[11px] font-black uppercase tracking-[0.2em] pb-5 relative transition-colors ${activeView === 'daily' ? 'text-slate-950' : 'text-slate-300'}`}>
@@ -204,7 +197,6 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {/* List Content */}
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           {viewData.length > 0 ? (
             viewData.map((stock) => (
@@ -212,7 +204,6 @@ const App: React.FC = () => {
                 key={stock.id || stock.stock_code} 
                 stock={stock} 
                 isPortfolio={activeView === 'portfolio'}
-                // Calculate performance return percentage based on current close price vs buy price.
                 returnPercent={activeView === 'portfolio' ? ((stock.close_price - (stock.buy_price || 0)) / (stock.buy_price || 1)) * 100 : 0}
                 onSelect={() => setSelectedStock(stock)} 
               />
@@ -225,7 +216,6 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Modal: Audit Report */}
       {isReportModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/20 backdrop-blur-md">
           <div className="w-full max-w-2xl bg-white p-10 relative shadow-2xl rounded-3xl border border-slate-100 max-h-[85vh] overflow-y-auto">
@@ -248,7 +238,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Detail Modal */}
       {selectedStock && <StockDetailModal stock={selectedStock} onClose={() => setSelectedStock(null)} onRunAi={handleAiInsight} />}
     </div>
   );

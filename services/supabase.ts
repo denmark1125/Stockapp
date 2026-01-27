@@ -2,6 +2,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { DailyAnalysis, PortfolioItem } from '../types';
 
+// 直接使用 (process.env as any) 以規避 ImportMeta 的型別檢查錯誤，並對接 Vercel 環境變數
 const SUPABASE_URL = (process.env as any).NEXT_PUBLIC_SUPABASE_URL || 'https://zfkwzbupyvrrthuowchc.supabase.co';
 const SUPABASE_KEY = (process.env as any).NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_wtSso_NL3o6j69XDmfeyvg_Hqs1w2i5';
 
@@ -21,7 +22,6 @@ export const fetchDailyAnalysis = async (): Promise<DailyAnalysis[]> => {
       roe: Number(item.roe || 0),
       revenue_yoy: Number(item.revenue_yoy || 0),
       ai_score: Number(item.ai_score || 0),
-      // 確保 updated_at 抓取的是最後一次掃描時間
       updated_at: item.created_at || item.updated_at
     })) as DailyAnalysis[];
   } catch (err) {
