@@ -10,7 +10,7 @@ import { ActionCard } from './components/StockCard';
 import { SystemStatus } from './components/SystemStatus';
 import { StockDetailModal } from './components/StockDetailModal';
 // 引用 Google 官方 SDK
-import { GoogleGenerativeAI } from "google-generativeai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { format, isAfter, isValid, isBefore, addHours } from 'date-fns';
 
 const App: React.FC = () => {
