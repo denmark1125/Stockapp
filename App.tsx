@@ -7,7 +7,7 @@ import { fetchDailyAnalysis, fetchPortfolio, supabase, signOut } from './service
 import { ActionCard } from './components/StockCard';
 import { SystemStatus } from './components/SystemStatus';
 import { StockDetailModal } from './components/StockDetailModal';
-// ✅ 使用穩定版 SDK
+// ✅ 修正：引用標準版 SDK 名稱
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { format } from 'date-fns';
 
@@ -130,7 +130,6 @@ const App: React.FC = () => {
   const generateDailyBriefing = async () => {
     if (isBriefingLoading) return;
     
-    // 修正：使用 VITE_GEMINI_API 搭配 as any 避開 TS 檢查
     const apiKey = (import.meta.env as any).VITE_GEMINI_API;
     
     if (!apiKey) { 
@@ -144,8 +143,8 @@ const App: React.FC = () => {
       const topStocks = processedData.dailyList.slice(0, 10);
       const context = topStocks.map(s => `${s.stock_name}(${s.stock_code}): 分數${s.ai_score}, 點評: ${s.ai_comment}`).join('\n');
       
+      // ✅ 修正：使用 GoogleGenerativeAI 類別
       const genAI = new GoogleGenerativeAI(apiKey);
-      // 使用穩定版 gemini-pro 模型
       const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
       const result = await model.generateContent(`
@@ -187,6 +186,7 @@ const App: React.FC = () => {
     setStockReport(null);
 
     try {
+      // ✅ 修正：使用 GoogleGenerativeAI 類別
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
