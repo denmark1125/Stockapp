@@ -37,7 +37,6 @@ const App: React.FC = () => {
   const [isManualAdding, setIsManualAdding] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 全局情報報告狀態
   const [isGlobalReportOpen, setIsGlobalReportOpen] = useState(false);
   const [globalReportType, setGlobalReportType] = useState<'daily' | 'weekly'>('daily');
 
@@ -148,8 +147,7 @@ const App: React.FC = () => {
     setIsStockAiLoading(true);
     setStockAiReport(null);
     try {
-      /* Create a new GoogleGenAI instance with the API key from environment variables */
-     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (window as any).process?.env?.API_KEY;
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (window as any).process?.env?.API_KEY;
 
      if (!apiKey) {
       console.error("❌ 缺少 Gemini API Key，請檢查環境變數設定");
@@ -159,7 +157,16 @@ const App: React.FC = () => {
      }
 
      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `你是 Alpha Ledger 首席金融情報員。請針對股票：${stock.stock_name}(${stock.stock_code}) 進行深度聯網偵查。包含今日小道消息與操作建議。現價 ${stock.close_price}。`;
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const prompt = `你是 Alpha Ledger 首席金融情報員。今天是 ${today}。
+      請針對股票：${stock.stock_name}(${stock.stock_code}) 進行深度聯網偵查。
+      重點挖掘今日最新的：
+      1. 剛流出的法說會傳聞或產業鏈內幕消息。
+      2. 批踢踢 (PTT)、Dcard、Mobile01 等社群討論熱點。
+      3. 任何可能導致明日股價劇烈波動的「非對稱資訊」。
+      
+      當前現價: ${stock.close_price}。請給出明確的操作建議（獵殺、埋伏或撤退）。`;
+      
       const response = await ai.models.generateContent({ 
         model: 'gemini-3-pro-preview', 
         contents: prompt,
@@ -229,7 +236,6 @@ const App: React.FC = () => {
       <main className="max-w-[1000px] mx-auto px-4 lg:px-6 py-4 lg:py-6">
         <SystemStatus lastUpdated={state.lastUpdated} isSyncing={state.loading} dataDate={processedData.latestDate} isCurrent={processedData.isCurrent} />
         
-        {/* 全局情報區入口 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
            <button onClick={() => openGlobalReport('daily')} className="bg-slate-950 p-6 rounded-[2rem] text-white flex items-center justify-between group hover:ring-4 ring-rose-500/20 transition-all border border-white/5 shadow-2xl overflow-hidden relative">
               <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500 blur-[80px] opacity-10 group-hover:opacity-20 transition-opacity"></div>
