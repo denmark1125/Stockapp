@@ -11,7 +11,7 @@
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "lucide-react": "^0.294.0",
+    "lucide-react": "^0.469.0",
     "recharts": "^2.10.3",
     "@supabase/supabase-js": "^2.39.0",
     "@google/generative-ai": "^0.1.3",
