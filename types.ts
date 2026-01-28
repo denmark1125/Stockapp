@@ -1,35 +1,41 @@
 
 export interface DailyAnalysis {
   id: string;
-  stock_code: string;     // 1216.TW
-  stock_name: string;     // 統一
-  close_price: number;    // 收盤價
+  stock_code: string;     
+  stock_name: string;     
+  close_price: number;    
   volume?: number;
   turnover_value?: number;
   
-  // 核心數據 (與後端對齊)
-  ai_score: number;       // AI 總評分
-  roe: number | null;     // 股東權益報酬率
-  revenue_yoy: number | null; // 營收年增率
-  pe_ratio: number | null;    // 本益比
-  sector?: string;            // 產業/分類 (如: 🔥 嚴選, 💼 庫存)
+  // 雙軌評分核心
+  ai_score: number;       
+  score_short: number;    
+  score_long: number;     
   
-  // 股神系統風控欄位
-  trade_stop?: number;    // 停損價 (DB: trade_stop)
-  trade_tp1?: number;     // 目標價 (DB: trade_tp1)
-  trade_signal: 'TRADE_BUY' | 'SELL' | 'INVEST_HOLD' | 'TRADE_WATCH' | 'AVOID' | string; // 買賣訊號
-  ai_comment?: string;    // AI 一句話短評
+  roe: number | null;     
+  revenue_yoy: number | null; 
+  pe_ratio: number | null;    
+  sector?: string;            
+  
+  vol_ratio?: number;     
+  volatility?: number;    
+  trust_buying?: number;  
 
-  // 庫藏股擴充欄位 (由前端與 portfolio 表關聯生成)
-  buy_price?: number;
-  quantity?: number;
+  // Apex Predator Specific Fields
+  trade_tp1?: number;     // Target Profit
+  trade_stop?: number;    // Stop Loss
+  
+  trade_signal: string; 
+  ai_comment?: string;    
+
   is_holding_item?: boolean;
   portfolio_id?: string;
-
-  // 系統欄位
-  created_at: string;
-  updated_at: string;
   analysis_date: string;
+
+  // Additional fields for Portfolio integration to resolve App.tsx type mismatch
+  buy_price?: number;
+  quantity?: number;
+  profit_loss_ratio?: number;
 }
 
 export interface PortfolioItem {

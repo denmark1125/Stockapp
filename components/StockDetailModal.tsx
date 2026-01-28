@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
-  X, Zap, ChevronRight, History, Loader2, Star, Target, Sparkles, TrendingUp
+  X, Zap, ChevronRight, History, Loader2, Star, Target, Sparkles, TrendingUp, ShieldAlert, ArrowDownCircle, ArrowUpCircle
 } from 'lucide-react';
 import { DailyAnalysis } from '../types';
 import { fetchStockHistory } from '../services/supabase';
@@ -9,14 +10,12 @@ import {
   Tooltip, ResponsiveContainer
 } from 'recharts';
 
-// ✅ 修正重點 1：更新介面定義，加入 AI 相關屬性
 interface StockDetailModalProps {
   stock: DailyAnalysis;
   onClose: () => void;
-  onRunAi: () => void;        // 修正為不帶參數，因為 App.tsx 已經綁定好了
-  aiReport?: string | null;   // 新增：接收 AI 報告文字
-  isAiLoading?: boolean;      // 新增：接收 AI 載入狀態
-  onRemove?: (id: string) => void;
+  onRunAi: () => void;
+  aiReport?: string | null;
+  isAiLoading?: boolean;
 }
 
 export const StockDetailModal: React.FC<StockDetailModalProps> = ({ 
@@ -25,176 +24,117 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
   const [history, setHistory] = useState<DailyAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 載入歷史股價數據
   useEffect(() => {
     const loadHistoryData = async () => {
       setLoading(true);
       try {
         const data = await fetchStockHistory(stock.stock_code);
         setHistory(data);
-      } finally {
-        setLoading(false);
-      }
+      } finally { setLoading(false); }
     };
     loadHistoryData();
   }, [stock.stock_code]);
 
-  const isNewEntry = history.length <= 1;
-
-  const getSignalLabel = (signal: string) => {
-    switch (signal?.toUpperCase()) {
-      case 'TRADE_BUY': return '🎯 強力買進';
-      case 'SELL': return '🛑 止損賣出';
-      case 'INVEST_HOLD': return '💎 持有續抱';
-      case 'TRADE_WATCH': return '👀 觀察等待';
-      default: return '⚠️ 審慎評估';
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-xl">
-      <div className="w-full max-w-5xl bg-white rounded-t-[2.5rem] sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row h-[90vh] sm:h-fit sm:max-h-[90vh] animate-in slide-in-from-bottom duration-300">
+    <div className="fixed inset-0 z-[300] flex items-end lg:items-center justify-center p-0 lg:p-4 bg-slate-950/80 backdrop-blur-md">
+      <div className="w-full max-w-5xl bg-white rounded-t-[2rem] lg:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col lg:flex-row h-[90vh] lg:h-auto lg:max-h-[85vh] animate-in slide-in-from-bottom duration-300 relative">
         
-        {/* Mobile Close Button */}
-        <button onClick={onClose} className="sm:hidden absolute top-6 right-6 z-50 bg-white/10 backdrop-blur-md p-2 rounded-full text-white"><X size={20}/></button>
+        <button onClick={onClose} className="absolute top-5 right-6 z-50 bg-slate-100 p-2 rounded-full text-slate-800"><X size={18}/></button>
 
-        {/* Sidebar / Header */}
-        <div className="w-full md:w-[320px] bg-slate-950 text-white p-8 sm:p-10 flex flex-col shrink-0">
-          <div className="flex items-center gap-3 mb-6 sm:mb-8">
-            <span className="bg-rose-500 text-white text-[8px] sm:text-[9px] font-black uppercase px-2 py-1 rounded-md tracking-widest">
-              Alpha Terminal
-            </span>
-            <span className="mono-text text-[9px] sm:text-[10px] text-slate-500 font-bold">{stock.stock_code}</span>
+        {/* 左側資訊列 */}
+        <div className="w-full lg:w-[320px] bg-slate-950 text-white p-8 lg:p-10 flex flex-col shrink-0">
+          <div className="flex items-center gap-2 mb-8">
+            <span className="bg-rose-600 text-white text-[8px] font-black uppercase px-2 py-1 rounded-lg tracking-widest">TERMINAL</span>
+            <span className="mono-text text-[10px] text-slate-500 font-bold">{stock.stock_code}</span>
           </div>
           
-          <h2 className="text-3xl sm:text-5xl font-black italic tracking-tighter uppercase leading-tight mb-2 sm:mb-4">
-            {stock.stock_name}
-          </h2>
-          <p className="text-slate-500 text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-6 sm:mb-10">價值審計終端</p>
+          <h2 className="text-3xl lg:text-4xl font-black italic tracking-tighter uppercase leading-none mb-2">{stock.stock_name}</h2>
+          <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] mb-8">Premium Audit</p>
 
-          <div className="mt-auto hidden sm:block">
-            <div className="p-6 bg-white/5 rounded-2xl border border-white/10 mb-6">
-              <span className="text-[10px] text-slate-500 uppercase font-black block mb-2 tracking-widest">當前實戰訊號</span>
-              <div className="text-xl font-black text-rose-500">{getSignalLabel(stock.trade_signal)}</div>
-            </div>
-            <button onClick={onClose} className="w-full py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors">返回主螢幕</button>
-          </div>
-          
-          {/* Mobile Signal Badge */}
-          <div className="sm:hidden inline-flex px-4 py-2 bg-rose-500/10 border border-rose-500/20 rounded-xl w-fit mb-4">
-            <span className="text-xs font-black text-rose-500">{getSignalLabel(stock.trade_signal)}</span>
+          <div className="space-y-4">
+             <div className="p-5 bg-white/5 rounded-2xl border border-white/10">
+                <span className="text-[9px] text-slate-500 uppercase font-black block mb-2">經理人戰術</span>
+                <div className="text-xl font-black text-rose-500 italic mb-1">{stock.trade_signal === 'TRADE_BUY' ? '🎯 強力獵殺' : '⌛ 觀望觀測'}</div>
+                <p className="text-[10px] text-slate-400 font-bold leading-relaxed line-clamp-2">{stock.ai_comment}</p>
+             </div>
+             
+             <div className="grid grid-cols-2 gap-3">
+                <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl text-center">
+                   <span className="text-[8px] text-emerald-500 uppercase font-black block tracking-widest mb-1">目標</span>
+                   <div className="text-lg font-black text-emerald-500 mono-text">{stock.trade_tp1 || '--'}</div>
+                </div>
+                <div className="p-4 bg-rose-500/5 border border-rose-500/20 rounded-xl text-center">
+                   <span className="text-[8px] text-rose-500 uppercase font-black block tracking-widest mb-1">停損</span>
+                   <div className="text-lg font-black text-rose-500 mono-text">{stock.trade_stop || '--'}</div>
+                </div>
+             </div>
           </div>
         </div>
 
-        {/* Analytics Content */}
-        <div className="flex-1 p-6 sm:p-14 overflow-y-auto bg-white">
-          
-          {/* Chart Section */}
-          <div className="mb-8 sm:mb-12">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2 mb-4 sm:mb-8">
-              <History size={14} className="text-rose-500" /> 30日 因子戰情
+        {/* 右側內容 */}
+        <div className="flex-1 p-6 lg:p-10 overflow-y-auto bg-white scrollbar-hide">
+          <div className="mb-8">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2 mb-6">
+              <History size={14} className="text-rose-600" /> 趨勢因子分析
             </h3>
-            <div className="h-[240px] sm:h-[340px] w-full bg-slate-50 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 border border-slate-100 relative">
+            <div className="h-[220px] lg:h-[300px] w-full bg-slate-50 rounded-3xl p-4 border border-slate-100 relative shadow-inner">
               {loading ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Loader2 className="animate-spin text-rose-500" size={24} />
-                </div>
-              ) : isNewEntry ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 p-6 text-center">
-                  <Star fill="currentColor" size={32} className="text-rose-500 mb-4 animate-pulse" />
-                  <p className="font-black text-slate-900 uppercase tracking-widest text-sm mb-1">🔥 首度入榜新星</p>
-                  <p className="text-[9px] uppercase tracking-widest leading-relaxed">此標的為今日首次通過篩選，動能正處於爆發點。</p>
-                </div>
+                <div className="absolute inset-0 flex items-center justify-center"><Loader2 className="animate-spin text-rose-600" size={24} /></div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={history}>
-                    <defs>
-                      <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#e2e8f0" />
+                    <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#E2E8F0" />
                     <XAxis dataKey="analysis_date" hide />
-                    <YAxis yAxisId="left" hide domain={[0, 100]} />
-                    <YAxis yAxisId="right" hide domain={['auto', 'auto']} />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', fontSize: '12px' }}
-                    />
-                    <Area yAxisId="left" type="monotone" dataKey="ai_score" stroke="#f43f5e" fill="url(#colorScore)" strokeWidth={3} />
-                    <Line yAxisId="right" type="monotone" dataKey="close_price" stroke="#1a1a1a" strokeWidth={2} dot={{ r: 4, fill: '#1a1a1a' }} />
+                    <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 20px rgba(0,0,0,0.1)', fontSize: '12px' }} />
+                    <Area type="monotone" dataKey="ai_score" stroke="#f43f5e" fill="#f43f5e" fillOpacity={0.05} strokeWidth={3} />
+                    <Line type="monotone" dataKey="close_price" stroke="#0F172A" strokeWidth={2} dot={{ r: 4 }} />
                   </ComposedChart>
                 </ResponsiveContainer>
               )}
             </div>
           </div>
 
-          {/* Metrics Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 mb-8 sm:mb-12 py-6 sm:py-10 border-y border-slate-100">
-             <div className="flex flex-col">
-                <span className="text-[8px] sm:text-[10px] font-black text-slate-400 block mb-1 uppercase tracking-widest">ROE</span>
-                <span className="text-xl sm:text-3xl font-black text-slate-900 mono-text">{stock.roe ? `${stock.roe}%` : '--'}</span>
-             </div>
-             <div className="flex flex-col">
-                <span className="text-[8px] sm:text-[10px] font-black text-slate-400 block mb-1 uppercase tracking-widest">P/E</span>
-                <span className="text-xl sm:text-3xl font-black text-slate-900 mono-text">{stock.pe_ratio ? `${stock.pe_ratio}x` : '--'}</span>
-             </div>
-             <div className="flex flex-col">
-                <span className="text-[8px] sm:text-[10px] font-black text-slate-400 block mb-1 uppercase tracking-widest">YoY</span>
-                <span className={`text-xl sm:text-3xl font-black mono-text ${ (stock.revenue_yoy || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                  {stock.revenue_yoy ? `${stock.revenue_yoy}%` : '--'}
-                </span>
-             </div>
-             <div className="flex flex-col">
-                <span className="text-[8px] sm:text-[10px] font-black text-slate-400 block mb-1 uppercase tracking-widest">Alpha</span>
-                <span className="text-xl sm:text-3xl font-black text-rose-600 italic mono-text">{stock.ai_score}</span>
-             </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 py-6 border-y border-slate-100">
+             {[
+               { label: 'ROE', value: `${stock.roe}%` },
+               { label: 'PE', value: `${stock.pe_ratio}x` },
+               { label: '當沖分', value: stock.score_short },
+               { label: '波段分', value: stock.score_long }
+             ].map((stat, i) => (
+               <div key={i}>
+                 <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</span>
+                 <div className="text-xl font-black text-slate-900 mono-text">{stat.value}</div>
+               </div>
+             ))}
           </div>
 
-          {/* ✅ 修正重點 2：動態 AI 戰情室區塊 */}
-          <div className="mb-8 sm:mb-12">
-             <div className="flex items-center justify-between mb-6">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                  <Sparkles size={14} className="text-violet-600" />
-                  Gemini Intelligence
-                </h4>
-             </div>
-
-             {/* 靜態資料庫短評 (固定顯示) */}
-             <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 mb-6">
-                <div className="serif-text text-lg italic font-medium text-slate-800 leading-relaxed">
-                   {stock.ai_comment ? `「${stock.ai_comment}」` : "「因子數據已完成全局校準。具備高度追蹤價值。」"}
-                </div>
-             </div>
-
-             {/* 動態 AI 生成報告顯示區 */}
+          <div>
              {isAiLoading ? (
-               <div className="w-full py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200 flex flex-col items-center justify-center animate-pulse">
-                 <Loader2 className="animate-spin text-violet-600 mb-3" size={24} />
-                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">同步華爾街最新數據中...</span>
+               <div className="w-full py-12 bg-slate-50 rounded-2xl flex flex-col items-center justify-center animate-pulse">
+                 <Loader2 className="animate-spin text-slate-300 mb-2" size={20} />
+                 <span className="text-[8px] font-black text-slate-400 uppercase">AI 深度掃描中...</span>
                </div>
              ) : aiReport ? (
-               <div className="bg-gradient-to-br from-violet-50/50 to-indigo-50/30 p-8 rounded-[2rem] border border-indigo-100 shadow-sm animate-in fade-in slide-in-from-bottom-4">
+               <div className="bg-slate-900 p-8 rounded-3xl text-white shadow-xl border border-rose-500/30">
                  <div className="flex items-center gap-2 mb-4">
-                   <TrendingUp size={16} className="text-violet-600" />
-                   <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest">最新戰略報告</span>
+                   <Sparkles size={16} className="text-rose-500" />
+                   <span className="text-[10px] font-black text-rose-500 uppercase">AI 總表健檢報告</span>
                  </div>
-                 <div className="serif-text text-base text-slate-800 leading-loose whitespace-pre-line">
+                 <div className="text-sm lg:text-base text-slate-300 leading-relaxed italic whitespace-pre-line">
                    {aiReport}
                  </div>
                </div>
              ) : (
                <button 
                  onClick={onRunAi}
-                 className="w-full bg-slate-950 hover:bg-violet-600 text-white py-4 sm:py-6 rounded-xl sm:rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 sm:gap-4 active:scale-95 group"
+                 className="w-full bg-slate-950 hover:bg-slate-900 text-white py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-3 active:scale-[0.98] group border border-white/10"
                >
-                 <Zap size={18} className="text-rose-500 group-hover:text-white transition-colors" />
-                 <span className="text-xs sm:text-[14px] font-black tracking-[0.1em] sm:tracking-[0.2em] uppercase">請示 Gemini 深度決策</span>
+                 <Zap size={18} className="text-rose-500" />
+                 <span className="text-xs font-black tracking-widest uppercase">執行 AI 總表全維度健檢</span>
                  <ChevronRight size={18} />
                </button>
              )}
           </div>
-
         </div>
       </div>
     </div>

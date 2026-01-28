@@ -16,13 +16,13 @@ export const supabase = createClient(config.url, config.key, {
 
 export const fetchDailyAnalysis = async (): Promise<DailyAnalysis[]> => {
   try {
-    // 獲取最新 500 筆資料，按日期與分數降序，確保最新一天的完整標的一定會被包含在內
+    // 抓取 1000 筆資料，以確保即便有多個日期的資料，歷史趨勢圖也能繪製出來
     const { data, error } = await supabase
       .from('daily_analysis')
       .select('*')
       .order('analysis_date', { ascending: false })
       .order('ai_score', { ascending: false })
-      .limit(500);
+      .limit(1000);
 
     if (error) throw error;
     
@@ -45,7 +45,7 @@ export const fetchStockHistory = async (stockCode: string): Promise<DailyAnalysi
       .select('*')
       .eq('stock_code', stockCode)
       .order('analysis_date', { ascending: true })
-      .limit(30);
+      .limit(50);
     if (error) throw error;
     return (data || []).map(item => ({
       ...item,
