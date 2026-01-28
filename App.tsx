@@ -96,7 +96,7 @@ const App: React.FC = () => {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
       });
 
-      const text = response.text();
+      const text = response.text;
       setAiReport(text || "無法生成報告，請稍後再試。");
 
     } catch (error: any) {
