@@ -1,19 +1,18 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Alpha Ledger | 頂級價值審計</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
     
     <script>
-        // 強制注入環境變數，確保在任何模組載入前就緒
+        // 在所有模組載入前強制注入環境變數，防止 Failed to fetch
         window.process = {
             env: {
                 NEXT_PUBLIC_SUPABASE_URL: 'https://zfkwzbupyvrrthuowchc.supabase.co',
-                NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_wtSso_NL3o6j69XDmfeyvg_Hqs1w2i5',
+                NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_wtSso_NL3o6j69XDmfeyvg_Hqs1w2i5', // 注意：請確認這是正確的 Supabase Anon Key
                 NODE_ENV: 'development'
             }
         };
@@ -45,24 +44,21 @@
             border-radius: 50%; animation: spin 1s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* 行動版按鈕點擊縮放效果 */
-        .active-scale:active { transform: scale(0.96); transition: transform 0.1s; }
     </style>
 <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.0.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.0.0/",
-    "react/": "https://esm.sh/react@^19.0.0/",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.48.1",
-    "lucide-react": "https://esm.sh/lucide-react@^0.463.0",
-    "recharts": "https://esm.sh/recharts@^2.12.7",
-    "@google/genai": "https://esm.sh/@google/genai@^1.3.0",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.93.2",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "recharts": "https://esm.sh/recharts@^3.7.0",
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
+    "date-fns": "https://esm.sh/date-fns@^4.1.0",
     "path": "https://esm.sh/path@^0.12.7",
-    "vite": "https://esm.sh/vite@^6.0.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^4.3.4",
-    "date-fns": "https://esm.sh/date-fns@^4.1.0"
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>

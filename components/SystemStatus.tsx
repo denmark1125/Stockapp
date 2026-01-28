@@ -1,14 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Database, Clock } from 'lucide-react';
+import { ShieldCheck, Database, Clock, RefreshCcw } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface SystemStatusProps {
   lastUpdated: Date | null;
   isSyncing: boolean;
+  dataDate?: string | null;
+  isCurrent?: boolean;
 }
 
-export const SystemStatus: React.FC<SystemStatusProps> = ({ lastUpdated, isSyncing }) => {
+export const SystemStatus: React.FC<SystemStatusProps> = ({ lastUpdated, isSyncing, dataDate, isCurrent }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -21,30 +23,35 @@ export const SystemStatus: React.FC<SystemStatusProps> = ({ lastUpdated, isSynci
       <div className="flex items-center gap-2">
         <Clock size={14} className="text-slate-950 shrink-0" />
         <span className="text-slate-950 whitespace-nowrap">
-          <span className="opacity-50 mr-1 hidden sm:inline">系統時鐘:</span> 
+          <span className="opacity-50 mr-1 hidden sm:inline uppercase">系統時鐘:</span> 
           {format(currentTime, 'HH:mm:ss')}
         </span>
       </div>
       
       <div className="flex items-center gap-2">
-        <Database size={14} className={`${isSyncing ? "animate-pulse text-amber-500" : "text-emerald-500"} shrink-0`} />
+        <Database size={14} className={`${isSyncing ? "animate-spin text-amber-500" : "text-emerald-500"} shrink-0`} />
         <span className="text-slate-500 whitespace-nowrap">
-          <span className="opacity-50 mr-1 hidden sm:inline">雲端節點:</span>
-          {isSyncing ? '同步中...' : 'Alpha 核心'}
+          <span className="opacity-50 mr-1 hidden sm:inline uppercase">雲端同步:</span>
+          {isSyncing ? '同步中' : '已連線'}
         </span>
       </div>
       
       <div className="flex items-center gap-2">
-        <ShieldCheck size={14} className="text-blue-500 shrink-0" />
+        <ShieldCheck size={14} className={`${isCurrent ? 'text-emerald-500' : 'text-amber-500'} shrink-0`} />
         <span className="text-slate-500 whitespace-nowrap">
-          <span className="opacity-50 mr-1 hidden sm:inline">數據日期:</span>
-          {lastUpdated ? format(lastUpdated, 'MM/dd HH:mm') : '讀取中'}
+          <span className="opacity-50 mr-1 hidden sm:inline uppercase">數據日期:</span>
+          {dataDate || '讀取中'} 
+          <span className={`ml-2 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-tighter ${isCurrent ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+            {isCurrent ? '今日最新' : '待更新'}
+          </span>
         </span>
       </div>
 
       <div className="hidden lg:flex items-center gap-3 ml-auto">
-        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-        <span className="text-emerald-600 font-black tracking-widest text-[9px] uppercase">Alpha System Active</span>
+        <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-amber-500' : 'bg-emerald-500'} animate-pulse`}></div>
+        <span className={`${isSyncing ? 'text-amber-600' : 'text-emerald-600'} font-black tracking-widest text-[9px] uppercase`}>
+          {isSyncing ? 'Synchronizing Alpha...' : 'Alpha Terminal Active'}
+        </span>
       </div>
     </div>
   );
