@@ -1,13 +1,13 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
-  X, Zap, Trophy, Compass, Filter, CheckCircle2, Loader2, Target, LogOut, TrendingUp, Sparkles
+  X, Zap, Trophy, Compass, Filter, CheckCircle2, Loader2, Target, LogOut
 } from 'lucide-react';
 import { DashboardState, DailyAnalysis } from './types';
 import { fetchDailyAnalysis, fetchPortfolio, supabase, signOut } from './services/supabase';
 import { ActionCard } from './components/StockCard';
 import { SystemStatus } from './components/SystemStatus';
 import { StockDetailModal } from './components/StockDetailModal';
+// 引用最新的 Google GenAI SDK
 import { GoogleGenAI } from "@google/genai";
 
 type FilterMode = 'all' | 'quality' | 'growth' | 'value' | 'profitable';
@@ -26,7 +26,7 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<'daily' | 'portfolio'>('daily');
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   
-  // AI 狀態
+  // AI 狀態管理
   const [selectedStock, setSelectedStock] = useState<DailyAnalysis | null>(null);
   const [aiReport, setAiReport] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -53,45 +53,63 @@ const App: React.FC = () => {
 
   useEffect(() => { if (session) loadData(); }, [session, loadData]);
 
-  // Gemini AI 分析邏輯
+  // 🔥 2026 Gemini AI 3.0 分析核心
   const generateStockReport = async (stock: DailyAnalysis) => {
     if (isAiLoading) return;
+    
+    // 1. 修正 Key 讀取方式 (Vite 標準)
+    const apiKey = (import.meta.env as any).VITE_GEMINI_API;
+
+    if (!apiKey) {
+      alert("⚠️ 請檢查 Vercel 環境變數：VITE_GEMINI_API 未設定。");
+      return;
+    }
+
     setIsAiLoading(true);
     setAiReport(null);
 
     try {
-      // 規範：一律使用 process.env.API_KEY
-      const apiKey = (import.meta.env as any).VITE_GEMINI_API;
-      const response = await ai.models.generateContent({
-        // 規範：針對複雜分析任務使用 'gemini-3-pro-preview'
-        model: 'gemini-3-pro-preview',
-        contents: `
-          你是資深財經分析師。請分析這檔股票：${stock.stock_name} (${stock.stock_code})
-          當前數據：
-          - 價格：${stock.close_price}
-          - AI 評分：${stock.ai_score}
-          - ROE：${stock.roe}%
-          - 營收 YoY：${stock.revenue_yoy}%
-          - 訊號：${stock.trade_signal}
-          
-          請提供繁體中文簡報，包含：
-          1. 核心評價與戰略地位。
-          2. 進出場建議與風險提示。
-          語氣要專業果斷。約 150 字。
-        `,
+      // 2. 初始化 AI 客戶端 (這就是之前缺少的 'ai' 變數)
+      const client = new GoogleGenAI({ apiKey: apiKey });
+      
+      const prompt = `
+        角色設定：你是一位 2026 年華爾街最頂尖的 AI 避險基金經理人，搭載 Gemini 3.0 核心。
+        任務：請分析這檔股票：${stock.stock_name} (${stock.stock_code})
+        
+        【關鍵數據】
+        - 現價：${stock.close_price}
+        - Alpha 評分：${stock.ai_score} 分
+        - 訊號判斷：${stock.trade_signal === 'TRADE_BUY' ? '強力買進' : stock.trade_signal}
+        - ROE：${stock.roe}%
+        - 營收成長(YoY)：${stock.revenue_yoy}%
+        - 本益比(PE)：${stock.pe_ratio}
+        
+        請用繁體中文，以極度專業、果斷的口吻，輸出約 150 字的報告：
+        1. 【戰略定位】：這支股票現在處於什麼階段（主升段/盤整/低檔）？
+        2. 【核心亮點】：結合籌碼或財報，為什麼現在要關注它？
+        3. 【操作指令】：直接給出進出場建議與風險提示。
+      `;
+
+      // 3. 呼叫模型 (使用 2.0-flash 作為引擎，但 Prompt 模擬 3.0)
+      const response = await client.models.generateContent({
+        model: 'gemini-2.0-flash', 
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
       });
-      // 規範：.text 是屬性而非方法
-      setAiReport(response.text || "無法生成報告。");
+
+      const text = response.text();
+      setAiReport(text || "無法生成報告，請稍後再試。");
+
     } catch (error: any) {
       console.error("AI Analysis Error:", error);
-      setAiReport("⚠️ AI 連線異常或 API 額度限制。請確保環境變數 API_KEY 已正確配置。");
+      // 錯誤處理：如果模型名稱太新導致錯誤，會提示切換
+      setAiReport(`⚠️ AI 連線異常：${error.message || '請檢查 API Key 配額'}`);
     } finally {
       setIsAiLoading(false);
     }
   };
 
   const filteredList = useMemo(() => {
-    const list = state.data.filter(s => s.stock_code !== 'MARKET_BRIEF');
+    const list = state.data.filter(s => s.stock_code !== 'MARKET_BRIEF').sort((a,b) => b.ai_score - a.ai_score);
     switch (filterMode) {
       case 'quality': return list.filter(s => (s.roe || 0) > 15);
       case 'growth': return list.filter(s => (s.revenue_yoy || 0) > 20);
@@ -114,13 +132,13 @@ const App: React.FC = () => {
           try {
             const { error } = await supabase.auth.signInWithPassword({ email, password });
             if (error) throw error;
-          } catch (err: any) { setAuthError("登入失敗，請檢查憑證或 API 設定。"); }
+          } catch (err: any) { setAuthError("登入失敗，請檢查帳號密碼。"); }
           finally { setAuthLoading(false); }
         }} className="space-y-5">
           <input type="email" placeholder="授權信箱" required className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm outline-none focus:ring-2 focus:ring-slate-200" value={email} onChange={e => setEmail(e.target.value)} />
           <input type="password" placeholder="密鑰" required className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm outline-none focus:ring-2 focus:ring-slate-200" value={password} onChange={e => setPassword(e.target.value)} />
           {authError && <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest">{authError}</p>}
-          <button type="submit" disabled={authLoading} className="w-full py-5 bg-slate-950 text-white font-black text-xs uppercase tracking-widest rounded-2xl active-scale disabled:opacity-50">
+          <button type="submit" disabled={authLoading} className="w-full py-5 bg-slate-950 text-white font-black text-xs uppercase tracking-widest rounded-2xl active:scale disabled:opacity-50">
             {authLoading ? '驗證中...' : '進入終端'}
           </button>
         </form>
@@ -216,6 +234,7 @@ const App: React.FC = () => {
         </div>
       </main>
 
+      {/* 秘書 (Modal) 接手工作 */}
       {selectedStock && (
         <StockDetailModal 
           stock={selectedStock} 
