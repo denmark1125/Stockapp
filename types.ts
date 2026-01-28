@@ -1,30 +1,28 @@
 
 export interface DailyAnalysis {
   id: string;
-  stock_code: string;
-  stock_name: string;
-  close_price: number;
-  volume: number;
+  stock_code: string;     // 1216.TW
+  stock_name: string;     // 統一
+  close_price: number;    // 收盤價
+  volume?: number;
   turnover_value?: number;
-  technical_signal?: string;
   
   // 核心數據 (與後端對齊)
-  ai_score: number;
-  roe: number;
-  revenue_yoy: number; 
-  pe_ratio: number;
-  sector?: string;        
+  ai_score: number;       // AI 總評分
+  roe: number | null;     // 股東權益報酬率
+  revenue_yoy: number | null; // 營收年增率
+  pe_ratio: number | null;    // 本益比
+  sector?: string;            // 產業/分類 (如: 🔥 嚴選, 💼 庫存)
   
-  // 風控數據
-  trade_stop?: number;
-  trade_tp1?: number;
-  trade_tp2?: number;
-  atr_proxy?: number;
-  trade_signal: 'TRADE_BUY' | 'TRADE_WATCH' | 'AVOID' | 'INVEST_HOLD' | string;
-  ai_comment?: string;
+  // 股神系統風控欄位
+  trade_stop?: number;    // 停損價 (DB: trade_stop)
+  trade_tp1?: number;     // 目標價 (DB: trade_tp1)
+  trade_signal: 'TRADE_BUY' | 'SELL' | 'INVEST_HOLD' | 'TRADE_WATCH' | 'AVOID' | string; // 買賣訊號
+  ai_comment?: string;    // AI 一句話短評
 
-  // 庫藏股擴充欄位 (用於 UI 呈現與績效計算)
+  // 庫藏股擴充欄位 (由前端與 portfolio 表關聯生成)
   buy_price?: number;
+  quantity?: number;
   is_holding_item?: boolean;
   portfolio_id?: string;
 
@@ -42,13 +40,6 @@ export interface PortfolioItem {
   quantity: number;
   status: 'holding';
   created_at: string;
-}
-
-export interface TradeSignal {
-  label: string;
-  color: 'emerald' | 'rose' | 'amber' | 'slate';
-  reason: string;
-  trend: 'up' | 'down' | 'stable';
 }
 
 export interface DashboardState {

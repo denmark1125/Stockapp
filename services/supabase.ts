@@ -2,30 +2,68 @@
 import { createClient } from '@supabase/supabase-js';
 import { DailyAnalysis, PortfolioItem } from '../types';
 
-// 直接使用 (process.env as any) 以規避 ImportMeta 的型別檢查錯誤，並對接 Vercel 環境變數
-const SUPABASE_URL = (process.env as any).NEXT_PUBLIC_SUPABASE_URL || 'https://zfkwzbupyvrrthuowchc.supabase.co';
-const SUPABASE_KEY = (process.env as any).NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_wtSso_NL3o6j69XDmfeyvg_Hqs1w2i5';
+const getSupabaseConfig = () => {
+  const url = (window as any).process?.env?.NEXT_PUBLIC_SUPABASE_URL || 'https://zfkwzbupyvrrthuowchc.supabase.co';
+  const key = (window as any).process?.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  return { url, key };
+};
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const config = getSupabaseConfig();
+
+// 初始化客戶端，並增加重試與網路超時處理
+export const supabase = createClient(config.url, config.key, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+  global: {
+    // Fix: Explicitly define fetch parameters instead of using rest spread to avoid "spread argument must either have a tuple type" error
+    fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init).catch(err => {
+      console.error("Network Error in Supabase Client:", err);
+      throw new Error("無法連接至資料庫，請檢查網路或 API 金鑰配置。");
+    })
+  }
+});
 
 export const fetchDailyAnalysis = async (): Promise<DailyAnalysis[]> => {
   try {
     const { data, error } = await supabase
       .from('daily_analysis')
       .select('*')
-      .order('ai_score', { ascending: false });
+      .order('analysis_date', { ascending: false });
 
     if (error) throw error;
     
     return (data || []).map(item => ({
       ...item,
-      roe: Number(item.roe || 0),
-      revenue_yoy: Number(item.revenue_yoy || 0),
+      close_price: Number(item.close_price || 0),
       ai_score: Number(item.ai_score || 0),
-      updated_at: item.created_at || item.updated_at
+      roe: item.roe ? Number(item.roe) : 0,
+      revenue_yoy: item.revenue_yoy ? Number(item.revenue_yoy) : 0,
+      trade_signal: (item.trade_signal || 'AVOID').trim().toUpperCase(),
     })) as DailyAnalysis[];
   } catch (err) {
     console.error('[Supabase] fetchDailyAnalysis Error:', err);
+    throw err;
+  }
+};
+
+export const fetchStockHistory = async (stockCode: string): Promise<DailyAnalysis[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('daily_analysis')
+      .select('*')
+      .eq('stock_code', stockCode)
+      .order('analysis_date', { ascending: true })
+      .limit(30);
+    if (error) throw error;
+    return (data || []).map(item => ({
+      ...item,
+      close_price: Number(item.close_price || 0),
+      ai_score: Number(item.ai_score || 0)
+    })) as DailyAnalysis[];
+  } catch (err) {
+    console.error('[Supabase] fetchStockHistory Error:', err);
     return [];
   }
 };
@@ -35,36 +73,13 @@ export const fetchPortfolio = async (): Promise<PortfolioItem[]> => {
     const { data, error } = await supabase
       .from('portfolio')
       .select('*')
-      .eq('status', 'holding')
-      .order('created_at', { ascending: false });
+      .eq('status', 'holding');
     if (error) throw error;
-    return (data || []) as PortfolioItem[];
+    return data || [];
   } catch (err) {
     console.error('[Supabase] fetchPortfolio Error:', err);
-    return [];
+    throw err;
   }
-};
-
-export const addToPortfolio = async (stockCode: string, stockName: string, price: number, qty: number): Promise<void> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Authentication Required");
-  
-  const formattedCode = stockCode.toUpperCase().includes('.TW') ? stockCode.toUpperCase() : `${stockCode.toUpperCase()}.TW`;
-  
-  const { error } = await supabase.from('portfolio').insert([{ 
-    stock_code: formattedCode, 
-    stock_name: stockName, 
-    buy_price: price, 
-    quantity: qty, 
-    status: 'holding', 
-    user_id: user.id 
-  }]);
-  if (error) throw error;
-};
-
-export const deleteFromPortfolio = async (id: string | number): Promise<void> => {
-  const { error } = await supabase.from('portfolio').delete().eq('id', id);
-  if (error) throw error;
 };
 
 export const signOut = async (): Promise<void> => {

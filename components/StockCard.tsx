@@ -1,115 +1,76 @@
-
 import React from 'react';
-import { Target, ShieldAlert, ArrowUpRight, ArrowDownRight, ChevronRight, Activity } from 'lucide-react';
+import { Zap, Activity, Award, Rocket, Target } from 'lucide-react';
 import { DailyAnalysis } from '../types';
 
 interface ActionCardProps {
   stock: DailyAnalysis;
+  history?: { close_price: number }[];
   isPortfolio?: boolean;
-  returnPercent?: number;
   onSelect: () => void;
 }
 
 export const ActionCard: React.FC<ActionCardProps> = ({ 
-  stock, isPortfolio, returnPercent = 0, onSelect 
+  stock, isPortfolio, onSelect 
 }) => {
+  const isBuy = stock.trade_signal === 'TRADE_BUY';
   const score = stock.ai_score || 0;
-
-  const getSignalConfig = (signal: string) => {
-    switch (signal) {
-      case 'TRADE_BUY': return { color: 'text-emerald-500', bg: 'bg-emerald-500', label: '多頭進場' };
-      case 'TRADE_WATCH': return { color: 'text-amber-500', bg: 'bg-amber-500', label: '持續觀察' };
-      case 'INVEST_HOLD': return { color: 'text-blue-500', bg: 'bg-blue-500', label: '穩健持倉' };
-      case 'AVOID': return { color: 'text-rose-500', bg: 'bg-rose-500', label: '風險迴避' };
-      default: return { color: 'text-slate-400', bg: 'bg-slate-400', label: '掃描中' };
-    }
-  };
-
-  const config = getSignalConfig(stock.trade_signal);
 
   return (
     <div 
       onClick={onSelect}
-      className="relative p-6 mb-3 bg-white rounded-xl border border-slate-100 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.02)] transition-all duration-300 cursor-pointer group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:border-slate-200"
+      className={`group relative p-5 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border transition-all duration-500 cursor-pointer bg-white hover:shadow-[0_20px_50px_rgba(0,0,0,0.06)] active-scale overflow-hidden
+        ${isBuy ? 'border-rose-100 shadow-sm shadow-rose-50' : 'border-slate-100'}
+      `}
     >
-      {/* 狀態色條 */}
-      <div className={`absolute top-0 left-0 w-1 h-full rounded-l-xl ${config.bg} opacity-80`}></div>
-
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        
-        {/* 基本資訊區塊 */}
-        <div className="lg:w-1/4">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="mono-text text-[10px] font-bold text-slate-400 tracking-tighter">{stock.stock_code}</span>
-            <span className={`text-[9px] font-black px-2 py-0.5 rounded-md ${config.bg} text-white uppercase tracking-wider`}>
-              {config.label}
-            </span>
+      <div className="relative z-10 flex flex-col sm:flex-row gap-5 items-start sm:items-center">
+        {/* 指標頭部 */}
+        <div className="flex items-center gap-4 w-full sm:w-auto">
+          <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex flex-col items-center justify-center shadow-md transition-transform group-hover:scale-110 shrink-0
+            ${isBuy ? 'bg-rose-500 text-white' : 'bg-slate-50 text-slate-300'}
+          `}>
+            {isBuy ? <Zap size={18} fill="currentColor" /> : <Activity size={18} />}
+            <span className="text-[7px] font-black uppercase mt-1 tracking-widest">{isBuy ? 'Alpha' : 'Audit'}</span>
           </div>
-          <h3 className="text-2xl font-black tracking-tight text-slate-900 group-hover:text-emerald-600 transition-colors">
-            {stock.stock_name}
-          </h3>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.15em] mt-1.5 flex items-center gap-2">
-            <Activity size={10} className="text-slate-300" /> {stock.sector || 'ALPHA SECTOR'}
-          </p>
-        </div>
 
-        {/* ATR 風控區塊 (對應 Python 2.0x ATR 邏輯) */}
-        <div className="flex-1 grid grid-cols-2 gap-4 lg:px-8 lg:border-x border-slate-50">
-          <div className="flex items-center gap-3 p-3 bg-rose-50/40 rounded-xl border border-rose-100/30">
-            <div className="p-2 bg-white text-rose-500 rounded-lg shadow-sm">
-              <ShieldAlert size={14} />
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap gap-1.5 mb-1.5">
+               {score >= 90 && (
+                 <span className="bg-rose-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded flex items-center gap-1 tracking-widest">
+                   <Award size={8} /> TOP 1%
+                 </span>
+               )}
+               {stock.roe > 15 && (
+                 <span className="bg-slate-950 text-white text-[8px] font-black px-1.5 py-0.5 rounded flex items-center gap-1 tracking-widest">
+                   <Target size={8} /> QUALITY
+                 </span>
+               )}
             </div>
-            <div>
-              <span className="text-[9px] font-black text-slate-400 uppercase block tracking-widest mb-0.5">Discipline Stop</span>
-              <span className="text-lg font-black text-rose-600 mono-text tracking-tighter">
-                {stock.trade_stop ? `$${stock.trade_stop}` : '--'}
-              </span>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3 p-3 bg-emerald-50/40 rounded-xl border border-emerald-100/30">
-            <div className="p-2 bg-white text-emerald-500 rounded-lg shadow-sm">
-              <Target size={14} />
-            </div>
-            <div>
-              <span className="text-[9px] font-black text-slate-400 uppercase block tracking-widest mb-0.5">Audit Target</span>
-              <span className="text-lg font-black text-emerald-600 mono-text tracking-tighter">
-                {stock.trade_tp1 ? `$${stock.trade_tp1}` : '--'}
-              </span>
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-xl sm:text-3xl font-black tracking-tighter text-slate-900 group-hover:text-rose-500 transition-colors truncate">
+                {stock.stock_name}
+              </h3>
+              <span className="text-[10px] sm:text-xs font-bold text-slate-300 mono-text italic tracking-tighter">{stock.stock_code}</span>
             </div>
           </div>
         </div>
 
-        {/* 評分與績效區塊 */}
-        <div className="flex items-center gap-10 lg:w-56 justify-end">
-          <div className="text-right">
-            <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">AI Score</span>
-            <span className={`text-4xl font-black italic tracking-tighter ${score >= 80 ? 'text-emerald-500' : 'text-slate-900'}`}>
-              {score > 0 ? score : '--'}
-            </span>
+        {/* 核心數據區 - 行動版左右排版 */}
+        <div className="flex items-center justify-between w-full sm:w-auto sm:ml-auto gap-4 pt-4 sm:pt-0 border-t border-slate-50 sm:border-none">
+          <div className="text-left sm:text-right">
+            <span className="text-[8px] font-black text-slate-300 uppercase block mb-0.5 tracking-widest">Score</span>
+            <div className={`text-xl sm:text-3xl font-black italic tracking-tighter mono-text leading-none ${score >= 90 ? 'text-rose-500' : 'text-slate-950'}`}>{score}</div>
           </div>
-          
-          <div className="text-right min-w-[90px]">
-            {isPortfolio ? (
-              <div>
-                <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Return</span>
-                <div className={`text-xl font-black flex items-center justify-end gap-1 ${returnPercent >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                  {returnPercent >= 0 ? <ArrowUpRight size={16}/> : <ArrowDownRight size={16}/>}
-                  {Math.abs(returnPercent).toFixed(1)}%
-                </div>
-              </div>
-            ) : (
-              <div>
-                <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Market Close</span>
-                <div className="text-xl font-black text-slate-900 mono-text tracking-tighter">${stock.close_price}</div>
-              </div>
-            )}
+          <div className="text-left sm:text-right">
+            <span className="text-[8px] font-black text-slate-300 uppercase block mb-0.5 tracking-widest">Close</span>
+            <div className="text-xl sm:text-3xl font-black tracking-tighter mono-text text-slate-950 leading-none">${stock.close_price}</div>
+          </div>
+          <div className="bg-slate-50 px-4 py-3 sm:px-5 sm:py-3.5 rounded-xl text-center group-hover:bg-rose-50 transition-colors shrink-0">
+             <span className="text-[7px] font-black text-slate-300 group-hover:text-rose-400 block mb-0.5 uppercase tracking-widest">ROE / YoY</span>
+             <div className="text-[11px] sm:text-sm font-black mono-text text-slate-900 group-hover:text-rose-600">
+               {stock.roe || 0}% / {stock.revenue_yoy || 0}%
+             </div>
           </div>
         </div>
-      </div>
-      
-      <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
-        <ChevronRight size={20} className="text-slate-200" />
       </div>
     </div>
   );

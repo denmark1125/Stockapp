@@ -2,28 +2,51 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Alpha Ledger | 頂級價值審計</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+    
+    <script>
+        // 強制注入環境變數，確保在任何模組載入前就緒
+        window.process = {
+            env: {
+                NEXT_PUBLIC_SUPABASE_URL: 'https://zfkwzbupyvrrthuowchc.supabase.co',
+                NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_wtSso_NL3o6j69XDmfeyvg_Hqs1w2i5',
+                NODE_ENV: 'development'
+            }
+        };
+    </script>
+
     <style>
-        :root {
-            font-family: 'Space Grotesk', 'Noto Serif TC', serif;
+        :root { font-family: 'Space Grotesk', 'Noto Serif TC', serif; }
+        body { 
+          background-color: #FDFCFB; 
+          color: #1A1A1A; 
+          margin: 0; 
+          padding: 0; 
+          overflow-x: hidden;
+          -webkit-tap-highlight-color: transparent;
         }
-        body {
-            background-color: #FDFCFB;
-            color: #1A1A1A;
+        .mono-text { font-family: 'JetBrains Mono', monospace; }
+        .serif-text { font-family: 'Noto Serif TC', serif; }
+        
+        /* 隱藏捲軸但保持功能 */
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+        #root:empty::before {
+            content: "";
+            position: fixed; top: 50%; left: 50%;
+            width: 30px; height: 30px;
+            margin: -15px 0 0 -15px;
+            border: 2px solid #f1f5f9; border-top-color: #f43f5e;
+            border-radius: 50%; animation: spin 1s linear infinite;
         }
-        .mono-text {
-            font-family: 'JetBrains Mono', monospace;
-        }
-        .serif-text {
-            font-family: 'Noto Serif TC', serif;
-        }
-        /* 自定義捲軸 */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* 行動版按鈕點擊縮放效果 */
+        .active-scale:active { transform: scale(0.96); transition: transform 0.1s; }
     </style>
 <script type="importmap">
 {
@@ -31,13 +54,14 @@
     "react": "https://esm.sh/react@^19.2.4",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "react/": "https://esm.sh/react@^19.2.4/",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.93.1",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.93.2",
     "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "recharts": "https://esm.sh/recharts@^3.7.0",
     "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
-    "date-fns": "https://esm.sh/date-fns@^4.1.0",
     "path": "https://esm.sh/path@^0.12.7",
     "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "date-fns": "https://esm.sh/date-fns@^4.1.0"
   }
 }
 </script>

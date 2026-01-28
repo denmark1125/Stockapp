@@ -5,9 +5,9 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  // 讓 Vite 將 process.env 注入到全域變數，解決 tsc 編譯及執行時期的 process 未定義問題
   define: {
-    'process.env': {}
+    // 讓 Vite 在建置時保留 process.env 存取能力，支援 Vercel 環境變數注入
+    'process.env': 'process.env'
   },
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   resolve: {
@@ -15,4 +15,8 @@ export default defineConfig({
       '@': path.resolve('.'),
     }
   },
+  build: {
+    // 確保建置時不會因為瑣碎警告而中斷
+    chunkSizeWarningLimit: 1000,
+  }
 });
