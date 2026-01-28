@@ -6,7 +6,7 @@ interface ImportMetaEnv {
   readonly NEXT_PUBLIC_SUPABASE_URL: string;
   readonly NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
   readonly NEXT_PUBLIC_GEMINI_API: string;
-  readonly API_KEY: string;
+  readonly VITE_GEMINI_API_KEY: string;
 }
 
 interface ImportMeta {

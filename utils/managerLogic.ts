@@ -22,7 +22,6 @@ export interface ManagerAdvice {
 
 /**
  * 核心戰略判斷邏輯 - 強化分類精確度
- * 針對「當沖」與「波段」進行排他性判斷
  */
 export const getManagerAdvice = (stock: DailyAnalysis, forcedMode?: 'short' | 'long'): ManagerAdvice => {
   const volRatio = Number(stock.vol_ratio) || 0;
@@ -31,12 +30,12 @@ export const getManagerAdvice = (stock: DailyAnalysis, forcedMode?: 'short' | 'l
   const lScore = Number(stock.score_long) || 0;
   const close = Number(stock.close_price) || 0;
 
-  // 動態戰略權重計算 (Dynamic Strategic Weighting)
-  // 針對辛耘這類高週轉、高動能標的，增加當沖權重偏置
-  const shortWeight = sScore + (volRatio * 5) + (volatility * 2);
+  // 動態戰略權重計算
+  // 針對辛耘這類高動能標的，只要波動度 > 3.5 或量比 > 1.5，極大幅增加當沖權重
+  const momentumBias = (volatility > 3.5 ? 10 : 0) + (volRatio > 1.5 ? 10 : 0);
+  const shortWeight = sScore + (volRatio * 5) + (volatility * 2) + momentumBias;
   const longWeight = lScore + (Number(stock.roe || 0) / 2);
 
-  // 如果沒有強制指定，則依據計算後的權重進行分類
   const isShort = forcedMode ? forcedMode === 'short' : shortWeight >= longWeight;
   
   const advice: ManagerAdvice = {
@@ -50,13 +49,8 @@ export const getManagerAdvice = (stock: DailyAnalysis, forcedMode?: 'short' | 'l
   };
 
   if (isShort) {
-    if (volRatio > 1.8) {
-      advice.entry.text = '🔥 動能確認，市價強攻';
-      advice.entry.price = `${close}`;
-    } else {
-      advice.entry.text = '⏳ 尋求平盤附近低接';
-      advice.entry.price = `${(close * 0.995).toFixed(1)}`;
-    }
+    advice.entry.text = volRatio > 1.8 ? '🔥 動能確認，市價強攻' : '⏳ 尋求平盤附近低接';
+    advice.entry.price = volRatio > 1.8 ? `${close}` : `${(close * 0.995).toFixed(1)}`;
   } else {
     advice.entry.text = '💎 支撐區間分批佈局';
     advice.entry.price = `${(close * 0.985).toFixed(1)}`;
