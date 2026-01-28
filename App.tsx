@@ -60,11 +60,10 @@ const App: React.FC = () => {
     setAiReport(null);
 
     try {
-      // Initialize GoogleGenAI with the API key from environment variables.
-      // Guidelines: Always use a new instance before call to ensure up-to-date config.
+      // 規範：一律使用 process.env.API_KEY
       const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API });
       const response = await ai.models.generateContent({
-        // Guidelines: Using 'gemini-3-pro-preview' for complex text tasks such as stock strategic evaluation.
+        // 規範：針對複雜分析任務使用 'gemini-3-pro-preview'
         model: 'gemini-3-pro-preview',
         contents: `
           你是資深財經分析師。請分析這檔股票：${stock.stock_name} (${stock.stock_code})
@@ -81,11 +80,11 @@ const App: React.FC = () => {
           語氣要專業果斷。約 150 字。
         `,
       });
-      // Guidelines: Access response.text as a property, not a method.
+      // 規範：.text 是屬性而非方法
       setAiReport(response.text || "無法生成報告。");
     } catch (error: any) {
       console.error("AI Analysis Error:", error);
-      setAiReport("⚠️ AI 連線異常或 API 額度限制。");
+      setAiReport("⚠️ AI 連線異常或 API 額度限制。請確保環境變數 API_KEY 已正確配置。");
     } finally {
       setIsAiLoading(false);
     }
@@ -131,7 +130,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#FDFCFB] pb-24 sm:pb-10">
-      {/* 桌面版導航 */}
       <nav className="sticky top-0 z-[100] bg-white/80 border-b border-slate-100 px-6 sm:px-10 py-5 flex justify-between items-center backdrop-blur-2xl">
         <div className="flex items-center gap-4">
           <div className="bg-slate-950 p-2.5 rounded-xl text-white shadow-lg"><Zap size={18} fill="currentColor" /></div>
@@ -144,7 +142,6 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      {/* 手機版底欄導航 */}
       <div className="sm:hidden fixed bottom-0 left-0 right-0 z-[110] bg-white/95 border-t border-slate-100 px-10 py-5 flex justify-around backdrop-blur-xl shadow-[0_-10px_30px_rgba(0,0,0,0.02)]">
         <button onClick={() => setActiveView('daily')} className={`flex flex-col items-center gap-1.5 transition-colors ${activeView === 'daily' ? 'text-slate-950' : 'text-slate-400'}`}>
           <Compass size={22} strokeWidth={activeView === 'daily' ? 3 : 2} />
