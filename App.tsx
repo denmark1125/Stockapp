@@ -61,7 +61,7 @@ const App: React.FC = () => {
 
     try {
       // 規範：一律使用 process.env.API_KEY
-      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API });
+      const apiKey = (import.meta.env as any).VITE_GEMINI_API;
       const response = await ai.models.generateContent({
         // 規範：針對複雜分析任務使用 'gemini-3-pro-preview'
         model: 'gemini-3-pro-preview',
