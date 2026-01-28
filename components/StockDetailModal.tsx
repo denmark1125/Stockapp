@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
-  X, Zap, ChevronRight, History, Loader2, Star, Target
+  X, Zap, ChevronRight, History, Loader2, Star, Target, Sparkles, TrendingUp
 } from 'lucide-react';
 import { DailyAnalysis } from '../types';
 import { fetchStockHistory } from '../services/supabase';
@@ -10,17 +9,23 @@ import {
   Tooltip, ResponsiveContainer
 } from 'recharts';
 
+// ✅ 修正重點 1：更新介面定義，加入 AI 相關屬性
 interface StockDetailModalProps {
   stock: DailyAnalysis;
   onClose: () => void;
-  onRunAi: (stock: DailyAnalysis) => void;
+  onRunAi: () => void;        // 修正為不帶參數，因為 App.tsx 已經綁定好了
+  aiReport?: string | null;   // 新增：接收 AI 報告文字
+  isAiLoading?: boolean;      // 新增：接收 AI 載入狀態
   onRemove?: (id: string) => void;
 }
 
-export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClose, onRunAi }) => {
+export const StockDetailModal: React.FC<StockDetailModalProps> = ({ 
+  stock, onClose, onRunAi, aiReport, isAiLoading 
+}) => {
   const [history, setHistory] = useState<DailyAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 載入歷史股價數據
   useEffect(() => {
     const loadHistoryData = async () => {
       setLoading(true);
@@ -37,7 +42,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
   const isNewEntry = history.length <= 1;
 
   const getSignalLabel = (signal: string) => {
-    switch (signal.toUpperCase()) {
+    switch (signal?.toUpperCase()) {
       case 'TRADE_BUY': return '🎯 強力買進';
       case 'SELL': return '🛑 止損賣出';
       case 'INVEST_HOLD': return '💎 持有續抱';
@@ -48,7 +53,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
 
   return (
     <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-xl">
-      <div className="w-full max-w-5xl bg-white rounded-t-[2.5rem] sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row h-[90vh] sm:h-fit sm:max-h-[90vh]">
+      <div className="w-full max-w-5xl bg-white rounded-t-[2.5rem] sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row h-[90vh] sm:h-fit sm:max-h-[90vh] animate-in slide-in-from-bottom duration-300">
         
         {/* Mobile Close Button */}
         <button onClick={onClose} className="sm:hidden absolute top-6 right-6 z-50 bg-white/10 backdrop-blur-md p-2 rounded-full text-white"><X size={20}/></button>
@@ -76,7 +81,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
           </div>
           
           {/* Mobile Signal Badge */}
-          <div className="sm:hidden inline-flex px-4 py-2 bg-rose-500/10 border border-rose-500/20 rounded-xl w-fit">
+          <div className="sm:hidden inline-flex px-4 py-2 bg-rose-500/10 border border-rose-500/20 rounded-xl w-fit mb-4">
             <span className="text-xs font-black text-rose-500">{getSignalLabel(stock.trade_signal)}</span>
           </div>
         </div>
@@ -146,22 +151,50 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
              </div>
           </div>
 
-          {/* AI Comment */}
-          <div className="mb-8 sm:mb-12 p-6 sm:p-8 bg-slate-50 rounded-2xl sm:rounded-[2.5rem] border border-slate-100">
-             <h4 className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase mb-3 tracking-[0.2em]">Intelligence Briefing</h4>
-             <div className="serif-text text-lg sm:text-2xl italic font-medium text-slate-800 leading-relaxed">
-                {stock.ai_comment ? `「${stock.ai_comment}」` : "「因子數據已完成全局校準。具備高度追蹤價值。」"}
+          {/* ✅ 修正重點 2：動態 AI 戰情室區塊 */}
+          <div className="mb-8 sm:mb-12">
+             <div className="flex items-center justify-between mb-6">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                  <Sparkles size={14} className="text-violet-600" />
+                  Gemini Intelligence
+                </h4>
              </div>
+
+             {/* 靜態資料庫短評 (固定顯示) */}
+             <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 mb-6">
+                <div className="serif-text text-lg italic font-medium text-slate-800 leading-relaxed">
+                   {stock.ai_comment ? `「${stock.ai_comment}」` : "「因子數據已完成全局校準。具備高度追蹤價值。」"}
+                </div>
+             </div>
+
+             {/* 動態 AI 生成報告顯示區 */}
+             {isAiLoading ? (
+               <div className="w-full py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200 flex flex-col items-center justify-center animate-pulse">
+                 <Loader2 className="animate-spin text-violet-600 mb-3" size={24} />
+                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">同步華爾街最新數據中...</span>
+               </div>
+             ) : aiReport ? (
+               <div className="bg-gradient-to-br from-violet-50/50 to-indigo-50/30 p-8 rounded-[2rem] border border-indigo-100 shadow-sm animate-in fade-in slide-in-from-bottom-4">
+                 <div className="flex items-center gap-2 mb-4">
+                   <TrendingUp size={16} className="text-violet-600" />
+                   <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest">最新戰略報告</span>
+                 </div>
+                 <div className="serif-text text-base text-slate-800 leading-loose whitespace-pre-line">
+                   {aiReport}
+                 </div>
+               </div>
+             ) : (
+               <button 
+                 onClick={onRunAi}
+                 className="w-full bg-slate-950 hover:bg-violet-600 text-white py-4 sm:py-6 rounded-xl sm:rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 sm:gap-4 active:scale-95 group"
+               >
+                 <Zap size={18} className="text-rose-500 group-hover:text-white transition-colors" />
+                 <span className="text-xs sm:text-[14px] font-black tracking-[0.1em] sm:tracking-[0.2em] uppercase">請示 Gemini 深度決策</span>
+                 <ChevronRight size={18} />
+               </button>
+             )}
           </div>
 
-          <button 
-            onClick={() => onRunAi(stock)}
-            className="w-full bg-slate-950 hover:bg-rose-500 text-white py-4 sm:py-6 rounded-xl sm:rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 sm:gap-4 active:scale-95 mb-10 sm:mb-0"
-          >
-            <Zap size={18} />
-            <span className="text-xs sm:text-[14px] font-black tracking-[0.1em] sm:tracking-[0.2em] uppercase">請示最新決策指令</span>
-            <ChevronRight size={18} />
-          </button>
         </div>
       </div>
     </div>
