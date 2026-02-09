@@ -1,28 +1,30 @@
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Alpha Ledger | 頂級價值審計</title>
+    <title>Alpha Ledger | 智慧投資審計</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Serif+TC:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
     
     <script>
-        // 在所有模組載入前強制注入環境變數，防止 Failed to fetch
         window.process = {
             env: {
                 NEXT_PUBLIC_SUPABASE_URL: 'https://zfkwzbupyvrrthuowchc.supabase.co',
-                NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_wtSso_NL3o6j69XDmfeyvg_Hqs1w2i5', // 注意：請確認這是正確的 Supabase Anon Key
+                NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_wtSso_NL3o6j69XDmfeyvg_Hqs1w2i5',
                 NODE_ENV: 'development'
             }
         };
     </script>
 
     <style>
-        :root { font-family: 'Space Grotesk', 'Noto Serif TC', serif; }
+        :root { 
+          font-family: 'Inter', 'Noto Serif TC', serif;
+        }
         body { 
-          background-color: #FDFCFB; 
-          color: #1A1A1A; 
+          background-color: #FCFBF9; /* 和紙白 */
+          color: #2D2D2D; /* 墨色 */
           margin: 0; 
           padding: 0; 
           overflow-x: hidden;
@@ -31,16 +33,17 @@
         .mono-text { font-family: 'JetBrains Mono', monospace; }
         .serif-text { font-family: 'Noto Serif TC', serif; }
         
-        /* 隱藏捲軸但保持功能 */
+        .japanese-border { border: 0.5px solid rgba(45, 45, 45, 0.08); }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
         #root:empty::before {
             content: "";
             position: fixed; top: 50%; left: 50%;
-            width: 30px; height: 30px;
-            margin: -15px 0 0 -15px;
-            border: 2px solid #f1f5f9; border-top-color: #f43f5e;
+            width: 20px; height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 1.5px solid rgba(45, 45, 45, 0.1); 
+            border-top-color: #C83232;
             border-radius: 50%; animation: spin 1s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }

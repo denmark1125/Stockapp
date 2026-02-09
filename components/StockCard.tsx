@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Zap, Target, ShieldAlert, TrendingUp, AlertTriangle, ArrowRightCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Target, Shield, ArrowUpRight, ArrowDownRight, TrendingUp, Zap, Sparkles } from 'lucide-react';
 import { DailyAnalysis } from '../types';
 import { getManagerAdvice } from '../utils/managerLogic';
 
@@ -12,97 +12,86 @@ interface ActionCardProps {
 
 export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strategyMode }) => {
   const advice = getManagerAdvice(stock, strategyMode);
-  const isShort = strategyMode === 'short';
   const isProfit = (stock.profit_loss_ratio || 0) >= 0;
 
   return (
     <div 
       onClick={onSelect}
-      className={`group relative rounded-[2rem] lg:rounded-[2.5rem] border-2 transition-all duration-300 cursor-pointer bg-white hover:shadow-xl active:scale-[0.99] overflow-hidden flex flex-col
-        ${isShort ? 'border-rose-100 hover:border-rose-300' : 'border-blue-100 hover:border-blue-300'}
-        ${stock.is_holding_item ? 'ring-2 ring-slate-950 ring-offset-2' : ''}`}
+      className={`group relative rounded-[2.5rem] border japanese-border bg-white transition-all duration-500 cursor-pointer hover:shadow-2xl active:scale-[0.98] overflow-hidden flex flex-col h-full
+        ${advice.status === 'ENTRY' ? 'ring-2 ring-[#C83232] ring-offset-4' : ''}
+        ${stock.is_holding_item ? 'border-[#1A1A1A] bg-slate-50/30' : ''}`}
     >
-      <div className="p-6 lg:p-8 pb-4 lg:pb-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div className="flex-1 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider shadow-sm border
-              ${isShort ? 'bg-rose-600 text-white border-rose-700' : 'bg-blue-600 text-white border-blue-700'}`}>
-              {advice.modeLabel}
-            </span>
-            {stock.is_holding_item && (
-              <span className="bg-slate-950 text-white text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-widest flex items-center gap-1">
-                <ShieldAlert size={10} className="text-amber-500" /> IN VAULT
-              </span>
-            )}
-            <span className="bg-slate-50 text-slate-400 text-[9px] font-bold px-2 py-1 rounded-lg border border-slate-100">
-              {stock.stock_code}
-            </span>
-          </div>
-          <h3 className="text-2xl lg:text-4xl font-black tracking-tighter text-slate-900 uppercase leading-tight truncate">
-            {stock.stock_name}
-          </h3>
-        </div>
-        
-        <div className="flex gap-6 items-center">
-          {stock.is_holding_item && (
-            <div className="text-right border-r border-slate-100 pr-6">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">UNREALIZED P/L</span>
-              <div className={`text-xl font-black mono-text leading-none italic flex items-center gap-1 justify-end ${isProfit ? 'text-emerald-500' : 'text-rose-600'}`}>
-                {isProfit ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
-                {stock.profit_loss_ratio?.toFixed(2)}%
-              </div>
+      {/* 信心指數裝飾條 */}
+      <div className="absolute top-0 left-0 h-1.5 bg-[#C83232]" style={{ width: `${advice.conviction}%` }}></div>
+
+      <div className="p-7 pb-4">
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-bold mono-text text-slate-300 tracking-widest">{stock.stock_code}</span>
+              {advice.conviction > 90 && <Sparkles size={12} className="text-[#C83232]" />}
             </div>
-          )}
+            <h3 className="serif-text text-3xl font-bold text-[#1A1A1A] leading-tight">{stock.stock_name}</h3>
+          </div>
           <div className="text-right">
-            <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest block mb-0.5">Market Price</span>
-            <div className="text-3xl lg:text-4xl font-black text-slate-950 mono-text leading-none italic flex items-baseline gap-1 lg:justify-end">
-              <span className="text-lg text-slate-300">$</span>{stock.close_price}
-            </div>
+             <div className="text-2xl font-bold mono-text leading-none italic text-[#1A1A1A]">
+               {stock.close_price}
+             </div>
+             {stock.is_holding_item && (
+               <div className={`text-[11px] font-bold mt-1.5 flex items-center justify-end gap-1 ${isProfit ? 'text-emerald-600' : 'text-[#C83232]'}`}>
+                 {isProfit ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                 {stock.profit_loss_ratio?.toFixed(1)}%
+               </div>
+             )}
           </div>
         </div>
-      </div>
 
-      <div className="px-4 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-2 lg:gap-4 mb-6">
-        <div className={`${stock.is_holding_item ? 'bg-slate-950' : 'bg-emerald-500'} p-5 lg:p-6 rounded-2xl text-white flex flex-col justify-between shadow-md transition-colors`}>
-          <div className="flex items-center gap-1.5 mb-2 opacity-80 uppercase text-[8px] font-black">
-            {stock.is_holding_item ? 'YOUR COST' : 'BUY DIRECTION'}
-          </div>
-          <div className="text-2xl lg:text-3xl font-black mono-text tracking-tighter">
-            {stock.is_holding_item ? stock.buy_price : advice.entry.price}
-          </div>
+        {/* 狀態標籤 */}
+        <div className="flex flex-wrap gap-2 mb-8">
+          <span className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all
+            ${advice.status === 'ENTRY' ? 'bg-[#C83232] text-white border-[#C83232]' : 
+              advice.status === 'HOLD' ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+            {advice.statusLabel}
+          </span>
+          <span className="bg-slate-50 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full border border-slate-100">
+            {advice.modeLabel}
+          </span>
         </div>
-        <div className={`${isShort ? 'bg-rose-500' : 'bg-blue-500'} p-5 lg:p-6 rounded-2xl text-white flex flex-col justify-between shadow-md`}>
-          <div className="flex items-center gap-1.5 mb-2 opacity-80 uppercase text-[8px] font-black">TARGET EXIT</div>
-          <div className="text-2xl lg:text-3xl font-black mono-text tracking-tighter">{advice.exit.price}</div>
-        </div>
-        <div className="bg-slate-800 p-5 lg:p-6 rounded-2xl text-white flex flex-col justify-between shadow-md">
-          <div className="flex items-center gap-1.5 mb-2 opacity-80 uppercase text-[8px] font-black">HARD STOP</div>
-          <div className="text-2xl lg:text-3xl font-black mono-text tracking-tighter">{advice.stop.price}</div>
-        </div>
-      </div>
 
-      <div className="mt-auto bg-slate-50 p-4 lg:p-6 flex flex-col lg:flex-row gap-4 lg:items-center border-t border-slate-100">
-        <div className="flex-1">
-          <p className="text-xs font-bold text-slate-600 italic leading-snug">
-            "{stock.ai_comment || '因子已校準。'}"
+        {/* 經理人指令 */}
+        <div className="mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+          <span className="text-[9px] font-black text-slate-400 block mb-1 uppercase tracking-widest">獲利指令 / Instruction</span>
+          <p className="text-sm font-bold text-[#1A1A1A] leading-relaxed italic">
+            「{advice.action}」
           </p>
         </div>
-        <div className="flex gap-2">
-            <div className="bg-white border border-slate-100 px-3 py-1.5 rounded-xl text-center min-w-[60px]">
-              <span className="text-[8px] font-bold text-slate-400 uppercase block">量比</span>
-              <span className="text-sm font-black text-slate-800 mono-text">{stock.vol_ratio?.toFixed(1)}x</span>
-            </div>
-            <div className="bg-white border border-slate-100 px-3 py-1.5 rounded-xl text-center min-w-[60px]">
-              <span className="text-[8px] font-bold text-slate-400 uppercase block">波動</span>
-              <span className="text-sm font-black text-rose-600 mono-text">{stock.volatility?.toFixed(1)}%</span>
-            </div>
-            {stock.is_holding_item && (
-              <div className="bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-center min-w-[60px]">
-                <span className="text-[8px] font-bold text-slate-500 uppercase block">持股</span>
-                <span className="text-sm font-black text-white mono-text">{stock.quantity}</span>
-              </div>
-            )}
+
+        <div className="grid grid-cols-2 gap-4">
+           <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+             <span className="text-[9px] font-bold text-slate-400 block mb-1">進場建議</span>
+             <div className="text-[15px] font-bold mono-text italic">{advice.entry.price}</div>
+           </div>
+           <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+             <span className="text-[9px] font-bold text-slate-400 block mb-1">停利目標</span>
+             <div className="text-[15px] font-bold mono-text text-emerald-600 italic">{advice.exit.price}</div>
+           </div>
         </div>
+      </div>
+
+      <div className="mt-auto border-t border-slate-50 p-5 flex items-center justify-between">
+         <div className="flex gap-4">
+            <div className="flex flex-col">
+              <span className="text-[8px] font-bold text-slate-400 uppercase">量比</span>
+              <span className="text-xs font-bold text-[#1A1A1A] mono-text">{stock.vol_ratio?.toFixed(1)}x</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[8px] font-bold text-slate-400 uppercase">信心</span>
+              <span className="text-xs font-bold text-[#C83232] mono-text">{advice.conviction}%</span>
+            </div>
+         </div>
+         <button className="bg-[#1A1A1A] text-white px-4 py-2 rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-[#C83232] transition-colors">
+            詳情審核 <TrendingUp size={12} />
+         </button>
       </div>
     </div>
   );
