@@ -1,8 +1,6 @@
-
 import React from 'react';
-import { Target, Shield, ArrowUpRight, ArrowDownRight, TrendingUp, Zap, Sparkles } from 'lucide-react';
+import { Target, TrendingUp, TrendingDown, Zap, Sparkles, AlertTriangle, Newspaper } from 'lucide-react';
 import { DailyAnalysis } from '../types';
-import { getManagerAdvice } from '../utils/managerLogic';
 
 interface ActionCardProps {
   stock: DailyAnalysis;
@@ -10,88 +8,197 @@ interface ActionCardProps {
   strategyMode: 'short' | 'long';
 }
 
+// 問題1：用 trade_signal 直接決定卡片視覺，不再依賴 conviction 分數推算
+const getSignalStyle = (signal: string, isHolding: boolean, isStopped: boolean) => {
+  if (isStopped) return {
+    borderClass: 'ring-2 ring-red-500 border-red-200',
+    barColor: '#ef4444',
+    barWidth: '100%',
+    labelBg: 'bg-red-600 text-white',
+    labelText: '🔴 立即停損',
+    action: '已跌破停損價，請立即出場保護資金',
+    actionColor: 'text-red-600',
+  };
+  switch (signal) {
+    case 'STRONG_BUY': return {
+      borderClass: 'ring-2 ring-[#C83232] ring-offset-2',
+      barColor: '#C83232',
+      barWidth: '100%',
+      labelBg: 'bg-[#C83232] text-white',
+      labelText: '🚀 強力買進',
+      action: '技術面＋基本面雙軌高分，優先考慮進場',
+      actionColor: 'text-[#C83232]',
+    };
+    case 'SWING_BUY': return {
+      borderClass: 'border-[#C83232]/40',
+      barColor: '#C83232',
+      barWidth: '75%',
+      labelBg: 'bg-[#C83232] text-white',
+      labelText: '🌊 波段買進',
+      action: '趨勢向上＋基本面支撐，適合波段持有',
+      actionColor: 'text-[#C83232]',
+    };
+    case 'DAYTRADE_BUY': return {
+      borderClass: 'border-orange-300',
+      barColor: '#f97316',
+      barWidth: '65%',
+      labelBg: 'bg-orange-500 text-white',
+      labelText: '⚡ 短線進擊',
+      action: '爆量高波動，適合短線操作，嚴守停損',
+      actionColor: 'text-orange-600',
+    };
+    case 'WATCH': return {
+      borderClass: 'border-slate-200',
+      barColor: '#94a3b8',
+      barWidth: '45%',
+      labelBg: 'bg-slate-100 text-slate-500',
+      labelText: '👀 觀察中',
+      action: '接近門檻，等待訊號更明確再動作',
+      actionColor: 'text-slate-500',
+    };
+    case 'HOLD': return {
+      borderClass: 'border-[#1A1A1A]',
+      barColor: '#1A1A1A',
+      barWidth: '50%',
+      labelBg: 'bg-[#1A1A1A] text-white',
+      labelText: '💼 持有中',
+      action: '趨勢未破，繼續持有，注意停損位置',
+      actionColor: 'text-[#1A1A1A]',
+    };
+    default: return {
+      borderClass: 'border-slate-100',
+      barColor: '#e2e8f0',
+      barWidth: '20%',
+      labelBg: 'bg-slate-50 text-slate-400',
+      labelText: '❌ 暫不考慮',
+      action: '條件不足',
+      actionColor: 'text-slate-400',
+    };
+  }
+};
+
+// 問題4：新聞情緒小標籤
+const NewsSentimentBadge: React.FC<{ sentiment?: string }> = ({ sentiment }) => {
+  if (!sentiment || sentiment === 'NEUTRAL') return null;
+  const map: Record<string, { label: string; cls: string }> = {
+    POSITIVE:        { label: '📈 利多', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    SLIGHT_POSITIVE: { label: '🟢 偏多', cls: 'bg-green-50 text-green-600 border-green-200' },
+    SLIGHT_NEGATIVE: { label: '🟡 偏空', cls: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+    NEGATIVE:        { label: '📉 利空', cls: 'bg-red-50 text-red-600 border-red-200 animate-pulse' },
+  };
+  const s = map[sentiment];
+  if (!s) return null;
+  return (
+    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${s.cls}`}>{s.label}</span>
+  );
+};
+
 export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strategyMode }) => {
-  const advice = getManagerAdvice(stock, strategyMode);
+  const score = strategyMode === 'short' ? (Number(stock.score_short) || 0) : (Number(stock.score_long) || 0);
   const isProfit = (stock.profit_loss_ratio || 0) >= 0;
+  const isStopped = !!(stock.is_holding_item && stock.trade_stop && stock.close_price < stock.trade_stop);
+  const style = getSignalStyle(stock.trade_signal, !!stock.is_holding_item, isStopped);
 
   return (
-    <div 
+    <div
       onClick={onSelect}
-      className={`group relative rounded-[2.5rem] border japanese-border bg-white transition-all duration-500 cursor-pointer hover:shadow-2xl active:scale-[0.98] overflow-hidden flex flex-col h-full
-        ${advice.status === 'ENTRY' ? 'ring-2 ring-[#C83232] ring-offset-4' : ''}
-        ${stock.is_holding_item ? 'border-[#1A1A1A] bg-slate-50/30' : ''}`}
+      className={`group relative rounded-[2.5rem] border japanese-border bg-white transition-all duration-300 cursor-pointer hover:shadow-2xl active:scale-[0.98] overflow-hidden flex flex-col h-full ${style.borderClass}`}
     >
-      {/* 信心指數裝飾條 */}
-      <div className="absolute top-0 left-0 h-1.5 bg-[#C83232]" style={{ width: `${advice.conviction}%` }}></div>
+      {/* 問題1：信心色條，寬度反映訊號強度 */}
+      <div className="absolute top-0 left-0 h-1.5 rounded-t-full transition-all duration-500"
+        style={{ width: style.barWidth, backgroundColor: style.barColor }} />
 
-      <div className="p-7 pb-4">
-        <div className="flex justify-between items-start mb-6">
+      {/* 問題2：停損警報橫幅 */}
+      {isStopped && (
+        <div className="bg-red-600 text-white px-4 py-2 flex items-center gap-2">
+          <AlertTriangle size={14} className="animate-bounce" />
+          <span className="text-[10px] font-bold">已跌破停損價 {stock.trade_stop} — 請立即出場</span>
+        </div>
+      )}
+
+      <div className="p-7 pb-4 flex-1">
+        {/* 標頭 */}
+        <div className="flex justify-between items-start mb-5">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-[10px] font-bold mono-text text-slate-300 tracking-widest">{stock.stock_code}</span>
-              {advice.conviction > 90 && <Sparkles size={12} className="text-[#C83232]" />}
+              {score >= 85 && <Sparkles size={12} className="text-[#C83232]" />}
             </div>
             <h3 className="serif-text text-3xl font-bold text-[#1A1A1A] leading-tight">{stock.stock_name}</h3>
           </div>
           <div className="text-right">
-             <div className="text-2xl font-bold mono-text leading-none italic text-[#1A1A1A]">
-               {stock.close_price}
-             </div>
-             {stock.is_holding_item && (
-               <div className={`text-[11px] font-bold mt-1.5 flex items-center justify-end gap-1 ${isProfit ? 'text-emerald-600' : 'text-[#C83232]'}`}>
-                 {isProfit ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                 {stock.profit_loss_ratio?.toFixed(1)}%
-               </div>
-             )}
+            <div className="text-2xl font-bold mono-text leading-none italic text-[#1A1A1A]">
+              {stock.close_price}
+            </div>
+            {stock.is_holding_item && (
+              <div className={`text-[11px] font-bold mt-1.5 flex items-center justify-end gap-1 ${isProfit ? 'text-emerald-600' : 'text-[#C83232]'}`}>
+                {isProfit ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                {stock.profit_loss_ratio?.toFixed(1)}%
+              </div>
+            )}
           </div>
         </div>
 
-        {/* 狀態標籤 */}
-        <div className="flex flex-wrap gap-2 mb-8">
-          <span className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all
-            ${advice.status === 'ENTRY' ? 'bg-[#C83232] text-white border-[#C83232]' : 
-              advice.status === 'HOLD' ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-            {advice.statusLabel}
+        {/* 問題1：訊號標籤 */}
+        <div className="flex flex-wrap gap-2 mb-5">
+          <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${style.labelBg}`}>
+            {style.labelText}
           </span>
           <span className="bg-slate-50 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full border border-slate-100">
-            {advice.modeLabel}
+            {strategyMode === 'short' ? '當沖' : '波段'}
           </span>
+          {/* 問題4：新聞情緒標籤 */}
+          <NewsSentimentBadge sentiment={stock.news_sentiment} />
         </div>
 
-        {/* 經理人指令 */}
-        <div className="mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-          <span className="text-[9px] font-black text-slate-400 block mb-1 uppercase tracking-widest">獲利指令 / Instruction</span>
-          <p className="text-sm font-bold text-[#1A1A1A] leading-relaxed italic">
-            「{advice.action}」
+        {/* 問題1：白話操作指令 */}
+        <div className="mb-5 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+          <span className="text-[9px] font-black text-slate-400 block mb-1 uppercase tracking-widest">系統指令</span>
+          <p className={`text-sm font-bold leading-relaxed italic ${style.actionColor}`}>
+            「{style.action}」
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-           <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-             <span className="text-[9px] font-bold text-slate-400 block mb-1">進場建議</span>
-             <div className="text-[15px] font-bold mono-text italic">{advice.entry.price}</div>
-           </div>
-           <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-             <span className="text-[9px] font-bold text-slate-400 block mb-1">停利目標</span>
-             <div className="text-[15px] font-bold mono-text text-emerald-600 italic">{advice.exit.price}</div>
-           </div>
+        {/* 停損 / 目標價 */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+            <span className="text-[9px] font-bold text-slate-400 block mb-1">🎯 目標價</span>
+            <div className="text-[15px] font-bold mono-text text-emerald-600 italic">
+              {stock.trade_tp1 || '--'}
+            </div>
+          </div>
+          <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+            <span className="text-[9px] font-bold text-slate-400 block mb-1">🛡️ 停損價</span>
+            <div className={`text-[15px] font-bold mono-text italic ${isStopped ? 'text-red-600' : 'text-slate-600'}`}>
+              {stock.trade_stop || '--'}
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="mt-auto border-t border-slate-50 p-5 flex items-center justify-between">
-         <div className="flex gap-4">
+      {/* 底部數據列 */}
+      <div className="border-t border-slate-50 p-5 flex items-center justify-between">
+        <div className="flex gap-4">
+          <div className="flex flex-col">
+            <span className="text-[8px] font-bold text-slate-400 uppercase">量比</span>
+            <span className={`text-xs font-bold mono-text ${(stock.vol_ratio || 0) > 1.5 ? 'text-emerald-600' : 'text-[#1A1A1A]'}`}>
+              {stock.vol_ratio?.toFixed(1)}x
+            </span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[8px] font-bold text-slate-400 uppercase">綜合分</span>
+            <span className="text-xs font-bold text-[#C83232] mono-text">{score}</span>
+          </div>
+          {stock.news_sentiment && stock.news_sentiment !== 'NEUTRAL' && (
             <div className="flex flex-col">
-              <span className="text-[8px] font-bold text-slate-400 uppercase">量比</span>
-              <span className="text-xs font-bold text-[#1A1A1A] mono-text">{stock.vol_ratio?.toFixed(1)}x</span>
+              <span className="text-[8px] font-bold text-slate-400 uppercase">新聞</span>
+              <Newspaper size={12} className={stock.news_sentiment === 'NEGATIVE' ? 'text-red-500' : stock.news_sentiment?.includes('POSITIVE') ? 'text-emerald-500' : 'text-yellow-500'} />
             </div>
-            <div className="flex flex-col">
-              <span className="text-[8px] font-bold text-slate-400 uppercase">信心</span>
-              <span className="text-xs font-bold text-[#C83232] mono-text">{advice.conviction}%</span>
-            </div>
-         </div>
-         <button className="bg-[#1A1A1A] text-white px-4 py-2 rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-[#C83232] transition-colors">
-            詳情審核 <TrendingUp size={12} />
-         </button>
+          )}
+        </div>
+        <button className="bg-[#1A1A1A] text-white px-4 py-2 rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-[#C83232] transition-colors">
+          詳情 <TrendingUp size={12} />
+        </button>
       </div>
     </div>
   );
