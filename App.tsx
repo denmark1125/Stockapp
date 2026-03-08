@@ -94,7 +94,18 @@ const App: React.FC = () => {
     };
 
     let baseList = [...latestStocks].sort((a, b) => getEliteScore(b) - getEliteScore(a));
-    const eliteList = baseList.filter(s => getEliteScore(s) >= 70).slice(0, 12);
+    // 只保留真正精銳的標的：分數 ≥ 70 且 trade_signal 不是 AVOID
+    const eliteList = baseList.filter(s => {
+      const score = strategy === 'short' ? (Number(s.score_short) || 0) : (Number(s.score_long) || 0);
+      const sig = s.trade_signal?.toUpperCase() || '';
+      // 有明確買進或觀察訊號
+      const hasBuySignal = ['STRONG_BUY', 'SWING_BUY', 'DAYTRADE_BUY', 'WATCH'].includes(sig);
+      // 或者分數夠高（處理舊資料 signal 不準確的情況）
+      const highScore = score >= 70;
+      // 排除純粹的 AVOID（同時分數也低）
+      const isAvoid = sig === 'AVOID' && score < 65;
+      return highScore && !isAvoid;
+    }).slice(0, 12);
 
     const portfolioList = state.portfolio.map(p => {
       const mkt = latestSnapshotMap.get(p.stock_code);

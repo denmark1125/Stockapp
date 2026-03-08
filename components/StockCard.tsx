@@ -8,9 +8,32 @@ interface ActionCardProps {
   strategyMode: 'short' | 'long';
 }
 
-// 問題1：用 trade_signal 直接決定卡片視覺，不再依賴 conviction 分數推算
-const getSignalStyle = (signal: string, isHolding: boolean, isStopped: boolean) => {
+// 訊號決定邏輯：
+// 優先讀 trade_signal（Python 腳本寫入的）
+// 如果是 AVOID/空值 但分數很高，用分數推算（防止舊資料問題）
+const resolveSignal = (signal: string, score: number, isHolding: boolean): string => {
+  // 庫存股直接看 signal
+  if (isHolding) return signal || 'HOLD';
+
+  // 如果 signal 已經是明確買進訊號，直接用
+  if (['STRONG_BUY', 'SWING_BUY', 'DAYTRADE_BUY', 'WATCH', 'SELL_STOP'].includes(signal)) {
+    return signal;
+  }
+
+  // signal 是 AVOID 或空值但分數高 → 用分數推算
+  // 這處理舊資料或資料不一致的情況
+  if (score >= 85) return 'STRONG_BUY';
+  if (score >= 75) return 'SWING_BUY';
+  if (score >= 65) return 'WATCH';
+
+  return signal || 'AVOID';
+};
+
+const getSignalStyle = (rawSignal: string, score: number, isHolding: boolean, isStopped: boolean) => {
+  const signal = resolveSignal(rawSignal, score, isHolding);
+
   if (isStopped) return {
+    signal,
     borderClass: 'ring-2 ring-red-500 border-red-200',
     barColor: '#ef4444',
     barWidth: '100%',
@@ -21,6 +44,7 @@ const getSignalStyle = (signal: string, isHolding: boolean, isStopped: boolean) 
   };
   switch (signal) {
     case 'STRONG_BUY': return {
+      signal,
       borderClass: 'ring-2 ring-[#C83232] ring-offset-2',
       barColor: '#C83232',
       barWidth: '100%',
@@ -30,6 +54,7 @@ const getSignalStyle = (signal: string, isHolding: boolean, isStopped: boolean) 
       actionColor: 'text-[#C83232]',
     };
     case 'SWING_BUY': return {
+      signal,
       borderClass: 'border-[#C83232]/40',
       barColor: '#C83232',
       barWidth: '75%',
@@ -39,6 +64,7 @@ const getSignalStyle = (signal: string, isHolding: boolean, isStopped: boolean) 
       actionColor: 'text-[#C83232]',
     };
     case 'DAYTRADE_BUY': return {
+      signal,
       borderClass: 'border-orange-300',
       barColor: '#f97316',
       barWidth: '65%',
@@ -48,15 +74,17 @@ const getSignalStyle = (signal: string, isHolding: boolean, isStopped: boolean) 
       actionColor: 'text-orange-600',
     };
     case 'WATCH': return {
+      signal,
       borderClass: 'border-slate-200',
       barColor: '#94a3b8',
       barWidth: '45%',
-      labelBg: 'bg-slate-100 text-slate-500',
-      labelText: '👀 觀察中',
-      action: '接近門檻，等待訊號更明確再動作',
-      actionColor: 'text-slate-500',
+      labelBg: 'bg-amber-50 text-amber-700 border border-amber-200',
+      labelText: '👀 觀察候選',
+      action: '有潛力但尚未完全確認，可列入觀察，等量能放大再考慮',
+      actionColor: 'text-amber-700',
     };
     case 'HOLD': return {
+      signal,
       borderClass: 'border-[#1A1A1A]',
       barColor: '#1A1A1A',
       barWidth: '50%',
@@ -66,12 +94,13 @@ const getSignalStyle = (signal: string, isHolding: boolean, isStopped: boolean) 
       actionColor: 'text-[#1A1A1A]',
     };
     default: return {
+      signal,
       borderClass: 'border-slate-100',
       barColor: '#e2e8f0',
       barWidth: '20%',
       labelBg: 'bg-slate-50 text-slate-400',
       labelText: '❌ 暫不考慮',
-      action: '條件不足',
+      action: '系統評估條件不足，此股不在推薦範圍',
       actionColor: 'text-slate-400',
     };
   }
@@ -97,7 +126,8 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
   const score = strategyMode === 'short' ? (Number(stock.score_short) || 0) : (Number(stock.score_long) || 0);
   const isProfit = (stock.profit_loss_ratio || 0) >= 0;
   const isStopped = !!(stock.is_holding_item && stock.trade_stop && stock.close_price < stock.trade_stop);
-  const style = getSignalStyle(stock.trade_signal, !!stock.is_holding_item, isStopped);
+  const style = getSignalStyle(stock.trade_signal, score, !!stock.is_holding_item, isStopped);
+  const isBuySignal = ['STRONG_BUY', 'SWING_BUY', 'DAYTRADE_BUY'].includes(style.signal);
 
   return (
     <div

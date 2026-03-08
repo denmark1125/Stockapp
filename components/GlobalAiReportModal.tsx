@@ -52,7 +52,7 @@ export const GlobalAiReportModal: React.FC<GlobalAiReportModalProps> = ({ type, 
         請以繁體中文產出報告。`;
 
         const response = await ai.models.generateContent({ 
-          model: 'gemini-3-pro-preview', 
+          model: 'gemini-2.0-flash', 
           contents: prompt,
           config: { tools: [{googleSearch: {}}] }
         });

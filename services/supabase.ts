@@ -21,7 +21,7 @@ export const fetchDailyAnalysis = async (): Promise<DailyAnalysis[]> => {
       .select('*')
       .order('analysis_date', { ascending: false })
       .order('ai_score', { ascending: false })
-      .limit(1000);
+      .limit(3000);
 
     if (error) throw error;
     
