@@ -16,8 +16,13 @@ const resolveSignal = (signal: string, score: number, isHolding: boolean): strin
   if (isHolding) return signal || 'HOLD';
 
   // 如果 signal 已經是明確買進訊號，直接用
-  if (['STRONG_BUY', 'SWING_BUY', 'DAYTRADE_BUY', 'WATCH', 'SELL_STOP'].includes(signal)) {
+  // WATCH 但分數極高時升級顯示（避免分數100卻顯示灰色的視覺矛盾）
+  if (['STRONG_BUY', 'SWING_BUY', 'DAYTRADE_BUY', 'SELL_STOP'].includes(signal)) {
     return signal;
+  }
+  if (signal === 'WATCH') {
+    if (score >= 90) return 'SWING_BUY';
+    return 'WATCH';
   }
 
   // signal 是 AVOID 或空值但分數高 → 用分數推算

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
-  X, Zap, ChevronRight, History, Loader2, Sparkles,
+  X, History, Loader2,
   TrendingUp, TrendingDown, PlusCircle, MinusCircle,
-  Globe, ExternalLink, Activity, Newspaper, HelpCircle
+  Newspaper, HelpCircle, Tag
 } from 'lucide-react';
 import { DailyAnalysis } from '../types';
 import { fetchStockHistory } from '../services/supabase';
@@ -14,7 +14,7 @@ import {
 interface StockDetailModalProps {
   stock: DailyAnalysis;
   onClose: () => void;
-  onRunAi: () => void;
+  onRunAi?: () => void;
   onTogglePortfolio: (stock: DailyAnalysis, buyPrice?: number, quantity?: number) => Promise<void>;
   aiReport?: { text: string; links: { title: string; uri: string }[] } | null;
   isAiLoading?: boolean;
@@ -173,23 +173,41 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
             </div>
           )}
 
-          <div className="space-y-4 flex-1">
-            <div className="p-5 bg-white/5 rounded-3xl border border-white/5">
-              <span className="text-[10px] text-slate-500 font-bold block mb-2">AI 綜合評語</span>
-              <p className="text-[12px] text-slate-300 font-medium leading-relaxed italic">
-                "{stock.ai_comment || '指標正常，正處於價值回歸區間。'}"
-              </p>
+          <div className="space-y-3 flex-1">
+
+            {/* 系統評估標籤 - 取代 AI 評語 */}
+            <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+              <span className="text-[10px] text-slate-500 font-bold block mb-2 uppercase tracking-widest">系統評估</span>
+              <div className="flex flex-wrap gap-1.5">
+                {stock.trend_bull && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ 均線多頭</span>}
+                {stock.macd_cross && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ MACD金叉</span>}
+                {stock.roe && stock.roe > 15 && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ ROE {stock.roe}%</span>}
+                {stock.revenue_yoy && stock.revenue_yoy > 10 && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ 營收+{Math.round(stock.revenue_yoy)}%</span>}
+                {stock.vol_ratio && stock.vol_ratio > 1.5 && <span className="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-1 rounded-lg font-bold">⚡ 量比{stock.vol_ratio?.toFixed(1)}x</span>}
+                {stock.trust_net && stock.trust_net > 0 && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded-lg font-bold">🏦 投信買超</span>}
+                {stock.foreign_net && stock.foreign_net > 500000 && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded-lg font-bold">🌍 外資大買</span>}
+                {stock.revenue_yoy && stock.revenue_yoy < -15 && <span className="text-[10px] bg-red-500/10 text-red-400 px-2 py-1 rounded-lg font-bold">⚠️ 營收衰退</span>}
+              </div>
             </div>
 
-            {/* 問題4：新聞情緒（彈窗版） */}
-            {stock.news_sentiment && stock.news_sentiment !== 'NEUTRAL' && (
-              <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-                <span className="text-[10px] text-slate-500 font-bold block mb-2">今日新聞情緒</span>
-                <p className="text-[12px] text-slate-300 font-medium">{stock.news_summary}</p>
+            {/* 新聞情緒 - 只顯示 news_summary（最新資料，不用 ai_comment） */}
+            {stock.news_sentiment && stock.news_sentiment !== 'NEUTRAL' && stock.news_summary && (
+              <div className={`p-4 rounded-2xl border ${stock.news_sentiment.includes('POSITIVE') ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
+                <span className="text-[10px] text-slate-500 font-bold block mb-1 uppercase tracking-widest">新聞情緒</span>
+                <p className={`text-[11px] font-medium leading-relaxed ${stock.news_sentiment.includes('POSITIVE') ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {stock.news_summary}
+                </p>
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-3">
+            {/* 掛單 / 目標 / 停損 */}
+            <div className="grid grid-cols-1 gap-2">
+              {(stock as any).trade_entry && (
+                <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex justify-between items-center">
+                  <span className="text-[10px] text-amber-400 font-bold">📌 建議掛單</span>
+                  <div className="text-xl font-bold text-amber-400 mono-text italic">{(stock as any).trade_entry}</div>
+                </div>
+              )}
               <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl flex justify-between items-center">
                 <span className="text-[10px] text-emerald-500 font-bold">🎯 目標價</span>
                 <div className="text-xl font-bold text-emerald-500 mono-text italic">{stock.trade_tp1 || '--'}</div>
@@ -302,15 +320,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
             </div>
           </div>
 
-          {/* 問題4：新聞情緒區塊 */}
-          {stock.news_sentiment && stock.news_sentiment !== 'NEUTRAL' && (
-            <div className="mb-6">
-              <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-3">
-                <Newspaper size={14} className="text-[#C83232]" /> 今日新聞情緒
-              </h3>
-              <NewsSentimentBlock sentiment={stock.news_sentiment} summary={stock.news_summary} score={stock.news_score} />
-            </div>
-          )}
+
 
           {/* 籌碼面 */}
           {(stock.trust_net !== 0 || stock.foreign_net !== 0) && (
@@ -334,49 +344,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
             </div>
           )}
 
-          {/* AI 聯網情報 */}
-          <div className="space-y-4">
-            {isAiLoading ? (
-              <div className="w-full py-16 bg-[#1A1A1A] rounded-[2.5rem] flex flex-col items-center justify-center border border-white/5">
-                <Activity className="animate-pulse text-[#C83232] mb-4" size={28} />
-                <span className="text-[10px] font-bold text-[#C83232] uppercase tracking-[0.4em] animate-pulse">正在解碼情報...</span>
-              </div>
-            ) : aiReport ? (
-              <div className="bg-[#1A1A1A] p-8 rounded-[2.5rem] text-white border border-[#C83232]/30">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="bg-[#C83232] p-2 rounded-xl"><Globe size={16} /></div>
-                  <span className="text-[11px] font-bold text-[#C83232] tracking-widest">AI 全球即時情報</span>
-                </div>
-                <div className="text-[14px] text-slate-300 leading-relaxed italic whitespace-pre-line border-l-2 border-[#C83232]/40 pl-6 mb-8 serif-text">
-                  {aiReport.text}
-                </div>
-                {aiReport.links.length > 0 && (
-                  <div className="pt-6 border-t border-white/5">
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-3">來源：</span>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                      {aiReport.links.slice(0, 4).map((link, idx) => (
-                        <a key={idx} href={link.uri} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between bg-white/5 hover:bg-white/10 px-4 py-3 rounded-2xl text-[10px] font-bold text-slate-400 transition-all">
-                          <span className="truncate max-w-[160px]">{link.title}</span>
-                          <ExternalLink size={12} />
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <button onClick={onRunAi} className="w-full bg-[#1A1A1A] hover:bg-black text-white py-8 rounded-[2.5rem] shadow-xl transition-all flex flex-col items-center justify-center gap-3 active:scale-[0.98] group">
-                <div className="flex items-center gap-4">
-                  <div className="bg-[#C83232] p-3 rounded-2xl group-hover:rotate-12 transition-transform"><Zap size={22} fill="currentColor" /></div>
-                  <div className="text-left">
-                    <span className="text-[10px] font-bold tracking-widest text-[#C83232] mb-0.5 block">解碼今日獲利機密</span>
-                    <span className="text-xl font-bold tracking-tight italic serif-text">啟動 AI 深度情報偵蒐</span>
-                  </div>
-                  <ChevronRight size={18} className="ml-4 text-slate-600 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </button>
-            )}
-          </div>
+
         </div>
       </div>
     </div>
