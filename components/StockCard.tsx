@@ -189,18 +189,24 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
           </p>
         </div>
 
-        {/* 停損 / 目標價 */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* 停損 / 目標價 / 建議掛單 */}
+        <div className="grid grid-cols-3 gap-2">
           <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
             <span className="text-[9px] font-bold text-slate-400 block mb-1">🎯 目標價</span>
-            <div className="text-[15px] font-bold mono-text text-emerald-600 italic">
+            <div className="text-[13px] font-bold mono-text text-emerald-600 italic">
               {stock.trade_tp1 || '--'}
             </div>
           </div>
           <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
             <span className="text-[9px] font-bold text-slate-400 block mb-1">🛡️ 停損價</span>
-            <div className={`text-[15px] font-bold mono-text italic ${isStopped ? 'text-red-600' : 'text-slate-600'}`}>
+            <div className={`text-[13px] font-bold mono-text italic ${isStopped ? 'text-red-600' : 'text-slate-600'}`}>
               {stock.trade_stop || '--'}
+            </div>
+          </div>
+          <div className={`p-3 rounded-2xl border shadow-sm ${stock.trade_entry ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-100'}`}>
+            <span className="text-[9px] font-bold text-slate-400 block mb-1">📌 掛單價</span>
+            <div className={`text-[13px] font-bold mono-text italic ${stock.trade_entry ? 'text-amber-700' : 'text-slate-300'}`}>
+              {stock.trade_entry || '--'}
             </div>
           </div>
         </div>

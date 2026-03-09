@@ -21,6 +21,7 @@ export interface DailyAnalysis {
 
   trade_tp1?: number;
   trade_stop?: number;
+  trade_entry?: number;
   trade_signal: string;
   trade_label?: string;
   ai_comment?: string;
