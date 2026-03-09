@@ -193,7 +193,14 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
             {/* 新聞情緒 - 只顯示 news_summary（最新資料，不用 ai_comment） */}
             {stock.news_sentiment && stock.news_sentiment !== 'NEUTRAL' && stock.news_summary && (
               <div className={`p-4 rounded-2xl border ${stock.news_sentiment.includes('POSITIVE') ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
-                <span className="text-[10px] text-slate-500 font-bold block mb-1 uppercase tracking-widest">新聞情緒</span>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">新聞情緒</span>
+                  {stock.news_date && (
+                    <span className="text-[9px] text-slate-500 mono-text bg-white/10 px-2 py-0.5 rounded-full">
+                      {stock.news_date}
+                    </span>
+                  )}
+                </div>
                 <p className={`text-[11px] font-medium leading-relaxed ${stock.news_sentiment.includes('POSITIVE') ? 'text-emerald-400' : 'text-red-400'}`}>
                   {stock.news_summary}
                 </p>

@@ -38,6 +38,7 @@ export interface DailyAnalysis {
   news_sentiment?: string;
   news_score?: number;
   news_summary?: string;
+  news_date?: string;
 
   is_holding_item?: boolean;
   portfolio_id?: string;
