@@ -10,7 +10,6 @@ import { SystemStatus } from './components/SystemStatus';
 import { MarketBriefing } from './components/MarketBriefing';
 import { StockDetailModal } from './components/StockDetailModal';
 import { GlobalAiReportModal } from './components/GlobalAiReportModal';
-import { GoogleGenAI } from "@google/genai";
 import { format } from 'date-fns';
 
 type StrategyMode = 'short' | 'long';
@@ -148,18 +147,37 @@ const App: React.FC = () => {
     setIsStockAiLoading(true);
     setStockAiReport(null);
     try {
-      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-      const prompt = `你是 Alpha Ledger 首席交易員。針對股票：${stock.stock_name}(${stock.stock_code})，現價 ${stock.close_price}。這檔股票目前在我們的 Python 腳本中被評為 ${strategy === 'short' ? '當沖' : '波段'} 潛力股。請針對當前網路上的法人研究報告、PTT、以及主力動向進行解碼。請給出明確的「進場點」、「加碼點」與「終極停損點」。中文回答。`;
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: prompt,
-        config: { tools: [{ googleSearch: {} }] }
-      });
-      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-      const links = chunks.map((c: any) => c.web).filter(Boolean).map((w: any) => ({ title: w.title, uri: w.uri }));
-      setStockAiReport({ text: response.text || "...", links });
+      const prompt = `你是 Alpha Ledger 首席交易員。
+
+股票：${stock.stock_name}（${stock.stock_code}）
+現價：${stock.close_price}
+策略：${strategy === 'short' ? '當沖短線' : '波段佈局'}
+系統評分：${strategy === 'short' ? stock.score_short : stock.score_long} 分
+停損價：${stock.trade_stop || '未設定'}
+目標價：${stock.trade_tp1 || '未設定'}
+AI評語：${stock.ai_comment || '無'}
+
+請給出：
+1. 這檔現在值得買嗎？直接說 YES / NO / 等待
+2. 最佳進場點
+3. 嚴格停損位置
+4. 目標出場價位
+
+語氣直接，像朋友建議。用繁體中文回答。`;
+
+      const response = await fetch(
+        "https://zfkwzbupyvrrthuowchc.supabase.co/functions/v1/claude-proxy",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt, max_tokens: 800 })
+        }
+      );
+      const data = await response.json();
+      const text = data.content?.[0]?.text || "⚠️ 情報解碼失敗";
+      setStockAiReport({ text, links: [] });
     } catch (e) {
-      setStockAiReport({ text: "⚠️ 情報解碼失敗。", links: [] });
+      setStockAiReport({ text: "⚠️ 情報解碼失敗，請稍後再試。", links: [] });
     } finally {
       setIsStockAiLoading(false);
     }

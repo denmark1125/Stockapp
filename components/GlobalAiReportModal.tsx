@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Loader2, Sparkles, Globe, ShieldAlert, FileText, Zap, Terminal, ExternalLink, ChevronRight, Lock } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
 import { format } from 'date-fns';
 
 interface GlobalAiReportModalProps {
@@ -36,33 +35,39 @@ export const GlobalAiReportModal: React.FC<GlobalAiReportModalProps> = ({ type, 
       }, 2000);
 
       try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const isWeekly = type === 'weekly';
         const today = format(new Date(), 'yyyy-MM-dd HH:mm');
-        
+        const portfolioSection = portfolioStocks.length > 0
+          ? `\n用戶目前持股：${portfolioStocks.join('、')}\n請特別說明這些持股是否有需要注意的風險或出場時機。`
+          : '';
+
         const prompt = `你是 Alpha Ledger 首席金融情報官（CIO）。今天是 ${today}。
-        請針對${isWeekly ? '本週市場動向與下週致富展望' : '今日市場動態與即時獲利情報'}產出「絕對機密」報告。
-        
-        任務指令（極度重要）：
-        1. 【全網偵蒐】：利用 Google Search 挖掘「今日」最火燙的小道消息、論壇爆料（如 PTT Stock 版、Dcard 財經版、法人私下傳聞）。不要給舊資料。
-        2. 【持股深度審計】：針對用戶關注股票：${portfolioStocks.join(', ')}。搜尋是否有剛發布或即時流出的利多/利空消息、甚至尚未被大眾媒體報出的傳聞。
-        3. 【操作指令】：給出 3 個最具爆發潛力的題材標的。語氣要像是在跟頂級交易員對話，冷靜、精準、直接。
-        4. 【內幕感】：報告內容應聚焦於「非公開感」的資訊彙整，並對照當前數據給出獲利策略。
-        
-        請以繁體中文產出報告。`;
 
-        const response = await ai.models.generateContent({ 
-          model: 'gemini-2.0-flash', 
-          contents: prompt,
-          config: { tools: [{googleSearch: {}}] }
-        });
+請針對${isWeekly ? '本週台股市場動向與下週操作展望' : '今日台股市場動態與操作建議'}產出「Alpha 機密報告」。
+${portfolioSection}
 
-        const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-        const links = chunks.map((c: any) => c.web).filter(Boolean).map((w: any) => ({ title: w.title, uri: w.uri }));
+報告結構：
+1. 【大盤解讀】今日/本週大盤重點，多空方向判斷
+2. 【三大法人動向】外資、投信、自營商各在做什麼？
+3. 【熱門題材】目前市場最強的 2~3 個題材或族群
+4. 【操作建議】給新手投資人的具體行動建議（買什麼、等什麼、避開什麼）
+5. 【風險提示】目前需要注意的風險因子
 
-        setReport({ text: response.text || "...", links });
+語氣直接有主見，像頂級交易員對朋友說話。用繁體中文，適當使用 emoji。`;
+
+        const response = await fetch(
+          "https://zfkwzbupyvrrthuowchc.supabase.co/functions/v1/claude-proxy",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt, max_tokens: 1200 })
+          }
+        );
+        const data = await response.json();
+        const text = data.content?.[0]?.text || "⚠️ 情報解碼失敗";
+        setReport({ text, links: [] });
       } catch (e) {
-        setReport({ text: "⚠️ 情報網遭到封鎖。請確認您的解碼金鑰是否正確，或稍後再試。", links: [] });
+        setReport({ text: "⚠️ 情報網遭到封鎖，請稍後再試。", links: [] });
       } finally {
         setLoading(false);
         clearInterval(statusInterval);
