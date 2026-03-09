@@ -179,14 +179,14 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
             <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
               <span className="text-[10px] text-slate-500 font-bold block mb-2 uppercase tracking-widest">系統評估</span>
               <div className="flex flex-wrap gap-1.5">
-                {stock.trend_bull && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ 均線多頭</span>}
-                {stock.macd_cross && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ MACD金叉</span>}
-                {stock.roe && stock.roe > 15 && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ ROE {stock.roe}%</span>}
-                {stock.revenue_yoy && stock.revenue_yoy > 10 && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ 營收+{Math.round(stock.revenue_yoy)}%</span>}
-                {stock.vol_ratio && stock.vol_ratio > 1.5 && <span className="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-1 rounded-lg font-bold">⚡ 量比{stock.vol_ratio?.toFixed(1)}x</span>}
-                {stock.trust_net && stock.trust_net > 0 && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded-lg font-bold">🏦 投信買超</span>}
-                {stock.foreign_net && stock.foreign_net > 500000 && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded-lg font-bold">🌍 外資大買</span>}
-                {stock.revenue_yoy && stock.revenue_yoy < -15 && <span className="text-[10px] bg-red-500/10 text-red-400 px-2 py-1 rounded-lg font-bold">⚠️ 營收衰退</span>}
+                {!!stock.trend_bull && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ 均線多頭</span>}
+                {!!stock.macd_cross && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ MACD金叉</span>}
+                {(stock.roe ?? 0) > 15 && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ ROE {stock.roe}%</span>}
+                {(stock.revenue_yoy ?? 0) > 10 && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ 營收+{Math.round(stock.revenue_yoy ?? 0)}%</span>}
+                {(stock.vol_ratio ?? 0) > 1.5 && <span className="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-1 rounded-lg font-bold">⚡ 量比{stock.vol_ratio?.toFixed(1)}x</span>}
+                {(stock.trust_net ?? 0) > 0 && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded-lg font-bold">🏦 投信買超</span>}
+                {(stock.foreign_net ?? 0) > 500000 && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded-lg font-bold">🌍 外資大買</span>}
+                {(stock.revenue_yoy ?? 0) < -15 && <span className="text-[10px] bg-red-500/10 text-red-400 px-2 py-1 rounded-lg font-bold">⚠️ 營收衰退</span>}
               </div>
             </div>
 
