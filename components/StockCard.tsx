@@ -190,8 +190,14 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
           <span className="bg-slate-50 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full border border-slate-100">
             {strategyMode === 'short' ? '當沖' : '波段'}
           </span>
-          {/* 今日進場可行性 */}
-          {entryFeasibility === 'ok' && (
+          {/* 智能保護警告（intraday 模式寫入的 alert_tag）*/}
+          {stock.trade_label && ['🚫 今日跌停','🔴 大跌警告','📤 爆量出貨','⚡ 超買反轉','❌ 掛單失效'].includes(stock.trade_label) && (
+            <span className="bg-red-50 text-red-700 border border-red-300 text-[10px] font-bold px-3 py-1 rounded-full animate-pulse">
+              {stock.trade_label}
+            </span>
+          )}
+          {/* 今日進場可行性（只在無保護警告時顯示）*/}
+          {!stock.trade_label?.includes('跌') && !stock.trade_label?.includes('出貨') && !stock.trade_label?.includes('反轉') && !stock.trade_label?.includes('失效') && entryFeasibility === 'ok' && (
             <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-3 py-1 rounded-full animate-pulse">
               ✅ 今日可進場
             </span>
