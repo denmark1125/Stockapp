@@ -134,6 +134,14 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
   const style = getSignalStyle(stock.trade_signal, score, !!stock.is_holding_item, isStopped);
   const isBuySignal = ['STRONG_BUY', 'SWING_BUY', 'DAYTRADE_BUY'].includes(style.signal);
 
+  // 今日進場可行性判斷（只對有掛單價的買進訊號有效）
+  const entryFeasibility = (() => {
+    if (!isBuySignal || !stock.trade_entry || stock.is_holding_item) return null;
+    const ratio = stock.close_price / stock.trade_entry;
+    if (ratio <= 1.03) return 'ok';      // 在掛單價 3% 內 → 可進場
+    return 'chasing';                     // 已超過 3% → 追高警告
+  })();
+
   return (
     <div
       onClick={onSelect}
@@ -182,6 +190,17 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
           <span className="bg-slate-50 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full border border-slate-100">
             {strategyMode === 'short' ? '當沖' : '波段'}
           </span>
+          {/* 今日進場可行性 */}
+          {entryFeasibility === 'ok' && (
+            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-3 py-1 rounded-full animate-pulse">
+              ✅ 今日可進場
+            </span>
+          )}
+          {entryFeasibility === 'chasing' && (
+            <span className="bg-orange-50 text-orange-700 border border-orange-200 text-[10px] font-bold px-3 py-1 rounded-full">
+              ⚠️ 已追高勿買
+            </span>
+          )}
           {/* 問題4：新聞情緒標籤 */}
           <NewsSentimentBadge sentiment={stock.news_sentiment} />
         </div>
