@@ -43,6 +43,37 @@ export const fetchDailyAnalysis = async (): Promise<DailyAnalysis[]> => {
   }
 };
 
+// 跨日期搜尋（手動新增庫存用，不限今天）
+export const searchStockAcrossHistory = async (query: string): Promise<DailyAnalysis[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('daily_analysis')
+      .select('stock_code, stock_name, close_price, trade_signal, ai_score, analysis_date, trade_entry, trade_stop, trade_tp1')
+      .or(`stock_name.ilike.%${query}%,stock_code.ilike.%${query}%`)
+      .neq('stock_code', 'MARKET_STATE')
+      .neq('stock_code', 'MARKET_BRIEF')
+      .order('analysis_date', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    // 每個代碼只留最新一筆
+    const seen = new Set<string>();
+    const deduped = (data || []).filter(item => {
+      if (seen.has(item.stock_code)) return false;
+      seen.add(item.stock_code);
+      return true;
+    });
+    return deduped.map(item => ({
+      ...item,
+      close_price: Number(item.close_price || 0),
+      ai_score: Number(item.ai_score || 0),
+      trade_signal: (item.trade_signal || 'AVOID').trim().toUpperCase(),
+    })) as DailyAnalysis[];
+  } catch (err) {
+    console.error('[Supabase] searchStockAcrossHistory Error:', err);
+    return [];
+  }
+};
+
 export const fetchStockHistory = async (stockCode: string): Promise<DailyAnalysis[]> => {
   try {
     const { data, error } = await supabase

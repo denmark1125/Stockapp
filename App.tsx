@@ -4,7 +4,7 @@ import {
   ArrowUpRight, ChevronRight, X, AlertTriangle, Shield
 } from 'lucide-react';
 import { DashboardState, DailyAnalysis } from './types';
-import { fetchDailyAnalysis, fetchPortfolio, supabase, signOut, addToPortfolio, removeFromPortfolio } from './services/supabase';
+import { fetchDailyAnalysis, fetchPortfolio, supabase, signOut, addToPortfolio, removeFromPortfolio, searchStockAcrossHistory } from './services/supabase';
 import { ActionCard } from './components/StockCard';
 import { SystemStatus } from './components/SystemStatus';
 import { MarketBriefing } from './components/MarketBriefing';
@@ -35,6 +35,7 @@ const App: React.FC = () => {
   const [selectedStock, setSelectedStock] = useState<DailyAnalysis | null>(null);
   const [isManualAdding, setIsManualAdding] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [manualSearchResults, setManualSearchResults] = useState<DailyAnalysis[]>([]);
 
   const [isGlobalReportOpen, setIsGlobalReportOpen] = useState(false);
   const [globalReportType, setGlobalReportType] = useState<'daily' | 'weekly'>('daily');
@@ -455,10 +456,10 @@ AI評語：${stock.ai_comment || '無'}
             </div>
             <div className="relative mb-8">
               <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" />
-              <input autoFocus type="text" placeholder="輸入標的代碼或名稱..." className="w-full bg-slate-50 border-none rounded-2xl pl-14 pr-6 py-5 text-sm font-bold outline-none shadow-inner" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+              <input autoFocus type="text" placeholder="輸入標的代碼或名稱..." className="w-full bg-slate-50 border-none rounded-2xl pl-14 pr-6 py-5 text-sm font-bold outline-none shadow-inner" value={searchQuery} onChange={async e => { setSearchQuery(e.target.value); if (e.target.value.length >= 1) { const results = await searchStockAcrossHistory(e.target.value); setManualSearchResults(results); } else { setManualSearchResults([]); } }} />
             </div>
             <div className="space-y-3 max-h-[340px] overflow-y-auto scrollbar-hide">
-              {processedData.searchResults.map(s => (
+              {(manualSearchResults.length > 0 ? manualSearchResults : processedData.searchResults).map(s => (
                 <div key={s.id} onClick={() => { setSelectedStock(s); setIsManualAdding(false); setSearchQuery(''); }} className="flex items-center justify-between p-5 bg-white hover:bg-slate-50 rounded-2xl cursor-pointer transition-all border border-slate-100 hover:border-[#1A1A1A] group">
                   <div>
                     <span className="text-[10px] font-bold text-slate-300 block tracking-widest mb-0.5 group-hover:text-slate-400">{s.stock_code}</span>
