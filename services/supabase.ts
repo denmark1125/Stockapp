@@ -96,10 +96,22 @@ export const fetchStockHistory = async (stockCode: string): Promise<DailyAnalysi
 
 export const fetchPortfolio = async (): Promise<PortfolioItem[]> => {
   try {
-    const { data, error } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    let { data, error } = await supabase
       .from('portfolio')
       .select('*')
-      .eq('status', 'holding');
+      .eq('status', 'holding')
+      .eq('user_id', user.id);
+    if (error) {
+      // 向下相容：user_id 欄位還沒建立（SQL 遷移未執行）時退回舊查詢
+      const fallback = await supabase
+        .from('portfolio')
+        .select('*')
+        .eq('status', 'holding');
+      data = fallback.data;
+      error = fallback.error;
+    }
     if (error) throw error;
     return (data || []).map(item => ({
       ...item,
@@ -113,24 +125,55 @@ export const fetchPortfolio = async (): Promise<PortfolioItem[]> => {
 };
 
 export const addToPortfolio = async (stock: DailyAnalysis, buyPrice: number, quantity: number): Promise<void> => {
-  const { error } = await supabase
-    .from('portfolio')
-    .insert([{
-      stock_code: stock.stock_code,
-      stock_name: stock.stock_name,
-      buy_price: buyPrice,
-      quantity: quantity,
-      status: 'holding'
-    }]);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('請先登入');
+  const row: Record<string, unknown> = {
+    stock_code: stock.stock_code,
+    stock_name: stock.stock_name,
+    buy_price: buyPrice,
+    quantity: quantity,
+    status: 'holding',
+    user_id: user.id
+  };
+  let { error } = await supabase.from('portfolio').insert([row]);
+  if (error) {
+    // 向下相容：user_id 欄位還沒建立時退回舊寫法
+    delete row.user_id;
+    const retry = await supabase.from('portfolio').insert([row]);
+    error = retry.error;
+  }
   if (error) throw error;
 };
 
 export const removeFromPortfolio = async (stockCode: string): Promise<void> => {
-  const { error } = await supabase
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('請先登入');
+  let { error } = await supabase
     .from('portfolio')
     .delete()
-    .eq('stock_code', stockCode);
+    .eq('stock_code', stockCode)
+    .eq('user_id', user.id);
+  if (error) {
+    const retry = await supabase.from('portfolio').delete().eq('stock_code', stockCode);
+    error = retry.error;
+  }
   if (error) throw error;
+};
+
+export const fetchLatestAiReport = async (): Promise<string | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('ai_reports')
+      .select('content, report_date')
+      .eq('report_type', 'daily')
+      .order('report_date', { ascending: false })
+      .limit(1)
+      .single();
+    if (error || !data) return null;
+    return data.content;
+  } catch {
+    return null;
+  }
 };
 
 export const signOut = async (): Promise<void> => {

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Compass, Layout, Wallet, LogOut, Search, Plus, Zap, Cpu,
-  ArrowUpRight, ChevronRight, X, AlertTriangle, Shield
+  ArrowUpRight, ChevronRight, X, AlertTriangle, Shield, FileDown, FileSpreadsheet, FileText
 } from 'lucide-react';
 import { DashboardState, DailyAnalysis } from './types';
-import { fetchDailyAnalysis, fetchPortfolio, supabase, signOut, addToPortfolio, removeFromPortfolio, searchStockAcrossHistory } from './services/supabase';
+import { fetchDailyAnalysis, fetchPortfolio, supabase, signOut, addToPortfolio, removeFromPortfolio, searchStockAcrossHistory, fetchLatestAiReport } from './services/supabase';
+import { exportToExcel, exportToPdf } from './utils/exportReport';
 import { ActionCard } from './components/StockCard';
 import { SystemStatus } from './components/SystemStatus';
 import { MarketBriefing } from './components/MarketBriefing';
@@ -39,6 +40,8 @@ const App: React.FC = () => {
 
   const [isGlobalReportOpen, setIsGlobalReportOpen] = useState(false);
   const [globalReportType, setGlobalReportType] = useState<'daily' | 'weekly'>('daily');
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [stockAiReport, setStockAiReport] = useState<{text: string, links: {title: string, uri: string}[]} | null>(null);
   const [isStockAiLoading, setIsStockAiLoading] = useState(false);
@@ -148,40 +151,75 @@ const App: React.FC = () => {
     setIsStockAiLoading(true);
     setStockAiReport(null);
     try {
-      const prompt = `你是 Alpha Ledger 首席交易員。
+      const prompt = `你是 Alpha Ledger 首席分析師，服務對象是完全不懂股票的投資新手，回答必須讓新手照著做就好。
 
 股票：${stock.stock_name}（${stock.stock_code}）
 現價：${stock.close_price}
 策略：${strategy === 'short' ? '當沖短線' : '波段佈局'}
 系統評分：${strategy === 'short' ? stock.score_short : stock.score_long} 分
+建議掛單價：${stock.trade_entry || '未設定'}
 停損價：${stock.trade_stop || '未設定'}
 目標價：${stock.trade_tp1 || '未設定'}
-AI評語：${stock.ai_comment || '無'}
+法人動向：投信 ${stock.trust_net || 0}、外資 ${stock.foreign_net || 0}
+新聞情緒：${stock.news_summary || '無'}
+系統評語：${stock.ai_comment || '無'}
 
-請給出：
-1. 這檔現在值得買嗎？直接說 YES / NO / 等待
-2. 最佳進場點
-3. 嚴格停損位置
-4. 目標出場價位
+請依照以下格式回答（不要用 markdown 符號，每段空一行）：
 
-語氣直接，像朋友建議。用繁體中文回答。`;
+🚦 結論
+（只能三選一：✅ 可以買 / ⏸ 再等等 / ❌ 不要碰，後面加一句白話理由）
 
+💰 怎麼買
+（用限價單掛多少元。以 10 萬元資金為例建議買幾股——可以是零股，並換算大約要花多少錢）
+
+🛡️ 保命規則
+（跌到多少元「一定」要全部賣掉，這條不能凹單。建議在券商 App 設好到價提醒）
+
+🎯 獲利目標
+（漲到多少元先賣一半、漲到多少元全部出場）
+
+⚠️ 最大風險
+（一句話講這檔最可能讓你賠錢的情境）
+
+語氣像懂股票的好朋友，直接、務實。全部繁體中文，250 字以內。`;
+
+      const { data: { session: authSession } } = await supabase.auth.getSession();
       const response = await fetch(
         "https://zfkwzbupyvrrthuowchc.supabase.co/functions/v1/claude-proxy",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${authSession?.access_token || ''}`
+          },
           body: JSON.stringify({ prompt, max_tokens: 800 })
         }
       );
       const data = await response.json();
-      const text = data.content?.[0]?.text || "⚠️ 情報解碼失敗";
+      const text = data.content?.[0]?.text || data.error || "⚠️ 情報解碼失敗";
       setStockAiReport({ text, links: [] });
     } catch (e) {
       setStockAiReport({ text: "⚠️ 情報解碼失敗，請稍後再試。", links: [] });
     } finally {
       setIsStockAiLoading(false);
     }
+  };
+
+  const handleExport = async (type: 'excel' | 'pdf') => {
+    setIsExporting(true);
+    try {
+      const reportText = await fetchLatestAiReport();
+      const exportData = {
+        eliteList: processedData.eliteList,
+        portfolioList: processedData.portfolioList,
+        reportText,
+        marketRegime: processedData.marketRegime,
+        latestDate: processedData.latestDate,
+      };
+      if (type === 'excel') exportToExcel(exportData);
+      else exportToPdf(exportData);
+    } catch (e) { console.error(e); }
+    finally { setIsExporting(false); setIsExportOpen(false); }
   };
 
   const handleTogglePortfolio = async (stock: DailyAnalysis, buyPrice?: number, quantity?: number) => {
@@ -371,6 +409,30 @@ AI評語：${stock.ai_comment || '無'}
           <button onClick={() => setIsGlobalReportOpen(true)} className="bg-[#C83232] text-white px-5 py-2.5 rounded-full text-[10px] font-bold flex items-center gap-2 hover:bg-rose-700 transition-all shadow-lg shadow-rose-900/10">
             <Cpu size={14} /> AI 深度獲利報告
           </button>
+          {/* 匯出報表 */}
+          <div className="relative">
+            <button onClick={() => setIsExportOpen(!isExportOpen)} className="bg-[#1A1A1A] text-white px-5 py-2.5 rounded-full text-[10px] font-bold flex items-center gap-2 hover:bg-slate-700 transition-all">
+              <FileDown size={14} /> 匯出報表
+            </button>
+            {isExportOpen && (
+              <div className="absolute right-0 top-12 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 w-52 z-[300]">
+                <button onClick={() => handleExport('pdf')} disabled={isExporting} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-left disabled:opacity-50">
+                  <FileText size={16} className="text-[#C83232]" />
+                  <div>
+                    <p className="text-xs font-bold">專業投資日報 PDF</p>
+                    <p className="text-[9px] text-slate-400">完整排版，適合存檔/分享</p>
+                  </div>
+                </button>
+                <button onClick={() => handleExport('excel')} disabled={isExporting} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-left disabled:opacity-50">
+                  <FileSpreadsheet size={16} className="text-emerald-600" />
+                  <div>
+                    <p className="text-xs font-bold">Excel 完整數據</p>
+                    <p className="text-[9px] text-slate-400">精選/持股/AI報告 三張工作表</p>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
           <button onClick={() => signOut()} className="text-slate-400 hover:text-[#C83232] transition-colors"><LogOut size={16} /></button>
         </div>
       </nav>
@@ -410,6 +472,15 @@ AI評語：${stock.ai_comment || '無'}
           </div>
           <div className="hidden lg:block">
             <SystemStatus lastUpdated={state.lastUpdated} isSyncing={state.loading} dataDate={processedData.latestDate} isCurrent={processedData.isCurrent} />
+          </div>
+          {/* 手機版匯出按鈕 */}
+          <div className="lg:hidden flex gap-2 mt-4">
+            <button onClick={() => handleExport('pdf')} disabled={isExporting} className="flex-1 bg-[#1A1A1A] text-white py-3 rounded-2xl text-[10px] font-bold flex items-center justify-center gap-2 disabled:opacity-50">
+              <FileText size={14} /> 匯出 PDF 日報
+            </button>
+            <button onClick={() => handleExport('excel')} disabled={isExporting} className="flex-1 bg-white border border-slate-200 text-[#1A1A1A] py-3 rounded-2xl text-[10px] font-bold flex items-center justify-center gap-2 disabled:opacity-50">
+              <FileSpreadsheet size={14} className="text-emerald-600" /> 匯出 Excel
+            </button>
           </div>
         </header>
 
