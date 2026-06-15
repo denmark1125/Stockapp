@@ -85,6 +85,10 @@ const App: React.FC = () => {
     // 取得最新大盤狀態
     const marketStateRow = latestData.find(s => s.stock_code === 'MARKET_STATE');
     const marketRegime = marketStateRow?.market_regime || latestStocks[0]?.market_regime || 'SIDEWAYS';
+    // 今日盤勢（爬蟲把當日漲跌存在 volatility、白話警示存在 ai_comment、等級存在 trade_label）
+    const marketChangePct = marketStateRow?.volatility != null ? Number(marketStateRow.volatility) : null;
+    const marketDayCaution = (marketStateRow?.trade_label as string) || 'CALM';  // CRASH/WEAK/STRONG/CALM
+    const marketCautionMsg = (marketStateRow?.ai_comment as string) || '';
 
     const getEliteScore = (s: DailyAnalysis) => {
       const history = scoreHistoryMap.get(s.stock_code) || [];
@@ -137,6 +141,9 @@ const App: React.FC = () => {
     return {
       marketBrief,
       marketRegime,
+      marketChangePct,
+      marketDayCaution,
+      marketCautionMsg,
       eliteList,
       fullList: baseList,
       portfolioList,
@@ -353,6 +360,9 @@ const App: React.FC = () => {
   );
 
   const isBearMarket = processedData.marketRegime === 'BEAR';
+  // 今日大盤急跌警示（即使中期趨勢多頭，單日重挫也要擋住新手追高）
+  const dayCaution = processedData.marketDayCaution;
+  const showCrashBanner = !isBearMarket && (dayCaution === 'CRASH' || dayCaution === 'WEAK');
 
   return (
     <div className="min-h-screen bg-[#FCFBF9] text-[#1A1A1A] pb-32">
@@ -363,6 +373,17 @@ const App: React.FC = () => {
           <AlertTriangle size={16} className="shrink-0 animate-pulse" />
           <p className="text-xs font-bold tracking-wide">
             🔴 大盤空頭警戒中 — 系統已封鎖新買進訊號，請專注管理現有庫存停損
+          </p>
+          <AlertTriangle size={16} className="shrink-0 animate-pulse" />
+        </div>
+      )}
+
+      {/* ── 今日大盤急跌警示（趨勢多頭但單日重挫，保護新手別追高）── */}
+      {showCrashBanner && (
+        <div className={`w-full px-6 py-3 flex items-center justify-center gap-3 text-center ${dayCaution === 'CRASH' ? 'bg-rose-600 text-white' : 'bg-amber-500 text-white'}`}>
+          <AlertTriangle size={16} className="shrink-0 animate-pulse" />
+          <p className="text-xs font-bold tracking-wide">
+            {processedData.marketCautionMsg || `大盤今日下跌 ${processedData.marketChangePct?.toFixed(1)}%，雖然中期仍是多頭，但今天先別追高`}
           </p>
           <AlertTriangle size={16} className="shrink-0 animate-pulse" />
         </div>
@@ -398,13 +419,18 @@ const App: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {/* 大盤狀態 badge */}
-          <div className={`px-3 py-1.5 rounded-full text-[10px] font-bold border ${
+          {/* 大盤狀態 badge：趨勢 + 今日漲跌（兩層資訊一眼看懂）*/}
+          <div className={`px-3 py-1.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5 ${
             isBearMarket ? 'bg-red-50 text-red-600 border-red-200' :
             processedData.marketRegime === 'BULL' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
             'bg-yellow-50 text-yellow-600 border-yellow-200'
           }`}>
-            {isBearMarket ? '🔴 空頭' : processedData.marketRegime === 'BULL' ? '🟢 多頭' : '🟡 盤整'}
+            <span>{isBearMarket ? '🔴 空頭' : processedData.marketRegime === 'BULL' ? '🟢 多頭' : '🟡 盤整'}</span>
+            {processedData.marketChangePct != null && (
+              <span className={`mono-text font-black ${processedData.marketChangePct >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                {processedData.marketChangePct >= 0 ? '▲' : '▼'}{Math.abs(processedData.marketChangePct).toFixed(1)}%
+              </span>
+            )}
           </div>
           <button onClick={() => setIsGlobalReportOpen(true)} className="bg-[#C83232] text-white px-5 py-2.5 rounded-full text-[10px] font-bold flex items-center gap-2 hover:bg-rose-700 transition-all shadow-lg shadow-rose-900/10">
             <Cpu size={14} /> AI 深度獲利報告
