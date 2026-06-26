@@ -80,6 +80,18 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
             <h3 className="text-[26px] font-bold text-[#1A1A1A] leading-none tracking-tight" style={{ fontFamily: "'Georgia', serif" }}>
               {stock.stock_name}
             </h3>
+            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              {stock.ai_theme && (
+                <span className="inline-flex items-center gap-1 bg-[#1A1A1A] text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide">
+                  🤖 AI股 · {stock.ai_theme.split(',').slice(0, 2).join('·')}
+                </span>
+              )}
+              {stock.opportunity_label === '🔥 高機會' && (
+                <span className="inline-flex items-center bg-[#C83232] text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide">
+                  🔥 高機會
+                </span>
+              )}
+            </div>
           </div>
           <div className="text-right ml-4">
             <div className="text-[28px] font-bold leading-none" style={{ fontFamily: 'monospace', color: isBuySignal ? '#C83232' : '#1A1A1A', fontVariantNumeric: 'tabular-nums' }}>

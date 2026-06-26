@@ -14,6 +14,9 @@ export interface DailyAnalysis {
   revenue_yoy: number | null;
   pe_ratio: number | null;
   sector?: string;
+  ai_theme?: string;
+  opportunity_label?: string;
+  opportunity_reason?: string;
 
   vol_ratio?: number;
   volatility?: number;
