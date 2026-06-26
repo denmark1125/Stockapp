@@ -89,6 +89,11 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
               <div className={`text-[11px] font-bold mt-1 flex items-center justify-end gap-1 ${isProfit ? 'text-emerald-700' : 'text-[#C83232]'}`}>
                 {isProfit ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                 <span style={{ fontFamily: 'monospace' }}>{stock.profit_loss_ratio?.toFixed(1)}%</span>
+                {typeof stock.profit_loss_amount === 'number' && Number.isFinite(stock.profit_loss_amount) && (
+                  <span style={{ fontFamily: 'monospace' }}>
+                    （{stock.profit_loss_amount >= 0 ? '+' : '−'}{Math.abs(Math.round(stock.profit_loss_amount)).toLocaleString()}元）
+                  </span>
+                )}
               </div>
             )}
           </div>

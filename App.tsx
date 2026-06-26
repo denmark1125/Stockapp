@@ -128,6 +128,8 @@ const App: React.FC = () => {
         close_price: currentPrice,
         quantity: p.quantity,
         profit_loss_ratio: ((currentPrice - p.buy_price) / p.buy_price) * 100,
+        // 台股一張=1000股，實際損益金額 = (現價-成本) × 張數 × 1000
+        profit_loss_amount: (currentPrice - p.buy_price) * Number(p.quantity) * 1000,
         is_holding_item: true,
       } as DailyAnalysis;
     });
@@ -567,7 +569,35 @@ const App: React.FC = () => {
                   </div>
                 </div>
               ))}
+
+              {/* 搜尋不到也能手動登錄（如集盛這類系統未分析的股票）*/}
+              {searchQuery.trim() && (
+                <div
+                  onClick={() => {
+                    const q = searchQuery.trim();
+                    const stub = {
+                      id: 'manual-' + Date.now(),
+                      stock_code: q, stock_name: q,
+                      close_price: 0, analysis_date: 'N/A', trade_signal: 'HOLD',
+                      ai_score: 0, score_short: 0, score_long: 0,
+                      roe: null, revenue_yoy: null, pe_ratio: null, vol_ratio: 1, volatility: 0,
+                    } as unknown as DailyAnalysis;
+                    setSelectedStock(stub);
+                    setIsManualAdding(false);
+                    setManualSearchResults([]);
+                    setSearchQuery('');
+                  }}
+                  className="flex items-center justify-between p-5 bg-[#1A1A1A] text-white rounded-2xl cursor-pointer transition-all hover:opacity-90"
+                >
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 block tracking-widest mb-0.5">找不到？直接手動登錄</span>
+                    <span className="text-lg font-bold">✏️ 新增「{searchQuery.trim()}」</span>
+                  </div>
+                  <div className="bg-white/15 p-2 rounded-xl"><ArrowUpRight size={18} /></div>
+                </div>
+              )}
             </div>
+            <p className="text-[10px] text-slate-400 mt-4 text-center leading-relaxed">輸入股票代碼（如 <span className="font-bold">1455</span>）系統較能抓到現價；找不到時可手動登錄追蹤</p>
           </div>
         </div>
       )}

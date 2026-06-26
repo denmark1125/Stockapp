@@ -47,6 +47,7 @@ export interface DailyAnalysis {
   buy_price?: number;
   quantity?: number;
   profit_loss_ratio?: number;
+  profit_loss_amount?: number;
 }
 
 export interface PortfolioItem {
