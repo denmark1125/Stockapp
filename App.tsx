@@ -128,8 +128,8 @@ const App: React.FC = () => {
         close_price: currentPrice,
         quantity: p.quantity,
         profit_loss_ratio: ((currentPrice - p.buy_price) / p.buy_price) * 100,
-        // 台股一張=1000股，實際損益金額 = (現價-成本) × 張數 × 1000
-        profit_loss_amount: (currentPrice - p.buy_price) * Number(p.quantity) * 1000,
+        // quantity 存的是「股數」，實際損益金額 = (現價-成本) × 股數
+        profit_loss_amount: (currentPrice - p.buy_price) * Number(p.quantity),
         is_holding_item: true,
       } as DailyAnalysis;
     });
