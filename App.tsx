@@ -14,7 +14,7 @@ import { GlobalAiReportModal } from './components/GlobalAiReportModal';
 import { format } from 'date-fns';
 
 type StrategyMode = 'short' | 'long';
-type ViewMode = 'elite' | 'portfolio' | 'full';
+type ViewMode = 'elite' | 'ai' | 'portfolio' | 'full';
 type AuthMode = 'login' | 'register';
 
 const App: React.FC = () => {
@@ -140,6 +140,14 @@ const App: React.FC = () => {
       (s.trade_stop && s.close_price < s.trade_stop)
     );
 
+    // 🤖 AI 特區：只收 AI 題材股，依高機會分數/AI評分排序（好股排前面）
+    const aiList = [...latestStocks]
+      .filter(s => s.ai_theme)
+      .sort((a, b) =>
+        (Number(b.opportunity_score) || Number(b.ai_score) || 0) -
+        (Number(a.opportunity_score) || Number(a.ai_score) || 0)
+      );
+
     return {
       marketBrief,
       marketRegime,
@@ -147,6 +155,7 @@ const App: React.FC = () => {
       marketDayCaution,
       marketCautionMsg,
       eliteList,
+      aiList,
       fullList: baseList,
       portfolioList,
       stopLossAlerts,
@@ -410,6 +419,7 @@ const App: React.FC = () => {
           <div className="flex gap-8">
             {[
               { id: 'elite', label: '獲利雷達', icon: Compass },
+              { id: 'ai', label: '🤖 AI 特區', icon: Cpu },
               { id: 'full', label: '全市場審查', icon: Layout },
               { id: 'portfolio', label: `資產帳冊${processedData.stopLossAlerts.length > 0 ? ` 🔴${processedData.stopLossAlerts.length}` : ''}`, icon: Wallet }
             ].map(v => (
@@ -470,6 +480,7 @@ const App: React.FC = () => {
         <div className="bg-[#1A1A1A] text-white rounded-[2rem] px-2 py-3 flex items-center justify-around shadow-2xl border border-white/5">
           {[
             { id: 'elite', label: '雷達', icon: Compass },
+            { id: 'ai', label: 'AI', icon: Cpu },
             { id: 'full', label: '市場', icon: Layout },
             { id: 'portfolio', label: processedData.stopLossAlerts.length > 0 ? `帳冊🔴` : '帳冊', icon: Wallet }
           ].map((item) => (
@@ -492,10 +503,10 @@ const App: React.FC = () => {
         <header className="mb-10 lg:flex items-end justify-between border-b border-slate-100 pb-8">
           <div>
             <h2 className="serif-text text-4xl lg:text-5xl font-bold tracking-tight mb-2">
-              {activeView === 'elite' ? '精選雷達' : activeView === 'full' ? '市場審查' : '資產帳冊'}
+              {activeView === 'elite' ? '精選雷達' : activeView === 'ai' ? 'AI 特區' : activeView === 'full' ? '市場審查' : '資產帳冊'}
             </h2>
             <p className="text-[11px] text-[#C83232] font-black uppercase tracking-[0.4em]">
-              {activeView === 'elite' ? 'Elite Conviction List' : activeView === 'full' ? 'Comprehensive Audit' : 'Asset Management'}
+              {activeView === 'elite' ? 'Elite Conviction List' : activeView === 'ai' ? 'AI Sector Radar' : activeView === 'full' ? 'Comprehensive Audit' : 'Asset Management'}
             </p>
           </div>
           <div className="hidden lg:block">
@@ -529,9 +540,16 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {(activeView === 'elite' ? processedData.eliteList : activeView === 'full' ? processedData.fullList : processedData.portfolioList).map(s => (
+          {(activeView === 'elite' ? processedData.eliteList : activeView === 'ai' ? processedData.aiList : activeView === 'full' ? processedData.fullList : processedData.portfolioList).map(s => (
             <ActionCard key={s.id} stock={s} strategyMode={strategy} onSelect={() => { setSelectedStock(s); setStockAiReport(null); }} />
           ))}
+
+          {activeView === 'ai' && processedData.aiList.length === 0 && !state.loading && (
+            <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border border-slate-100">
+              <p className="serif-text text-2xl text-slate-300 italic mb-2">今日 AI 題材股整理中</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">每日掃描後更新</p>
+            </div>
+          )}
 
           {activeView === 'elite' && processedData.eliteList.length === 0 && !state.loading && (
             <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border border-slate-100">
