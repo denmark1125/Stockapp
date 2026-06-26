@@ -17,6 +17,7 @@ export interface DailyAnalysis {
   ai_theme?: string;
   opportunity_label?: string;
   opportunity_reason?: string;
+  opportunity_score?: number;
 
   vol_ratio?: number;
   volatility?: number;
