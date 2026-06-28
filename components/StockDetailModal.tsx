@@ -159,7 +159,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
           )}
 
           <div className="flex items-center gap-3 mb-6">
-            <span className="bg-[#C83232] text-white text-[9px] font-bold px-2 py-0.5 rounded-md tracking-widest">審計終端</span>
+            <span className="bg-[#E8973A] text-white text-[9px] font-bold px-2 py-0.5 rounded-md tracking-widest">審計終端</span>
             <span className="mono-text text-[11px] text-slate-500 font-bold">{stock.stock_code}</span>
           </div>
 
@@ -250,7 +250,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
               className={`w-full py-4 rounded-2xl flex items-center justify-center gap-2 text-[11px] font-bold transition-all
                 ${stock.is_holding_item
                   ? 'bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20'
-                  : showAddForm ? 'bg-[#C83232] text-white' : 'bg-white text-black hover:bg-slate-200'}`}
+                  : showAddForm ? 'bg-[#E8973A] text-white' : 'bg-white text-black hover:bg-slate-200'}`}
             >
               {isProcessing ? <Loader2 size={16} className="animate-spin" /> : stock.is_holding_item ? <MinusCircle size={16} /> : <PlusCircle size={16} />}
               {stock.is_holding_item ? '移除此項持股' : showAddForm ? '確認登錄帳冊' : '登錄今日持股'}
@@ -265,11 +265,11 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-[11px] font-bold text-slate-400 flex items-center gap-2">
-                <History size={16} className="text-[#C83232]" /> 歷史趨勢
+                <History size={16} className="text-[#E8973A]" /> 歷史趨勢
               </h3>
               <div className="flex items-center gap-4 text-[11px] font-bold mono-text">
                 <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#1A1A1A]"></span> 價格</span>
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#C83232]"></span> 評分</span>
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#E8973A]"></span> 評分</span>
               </div>
             </div>
             <div className="h-[200px] w-full bg-slate-50/50 rounded-3xl p-4 border border-slate-100 relative">
@@ -281,7 +281,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                     <CartesianGrid strokeDasharray="6 6" vertical={false} stroke="#F1F5F9" />
                     <XAxis dataKey="analysis_date" hide />
                     <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', fontSize: '11px' }} />
-                    <Area type="monotone" dataKey="ai_score" stroke="#C83232" fill="#C83232" fillOpacity={0.04} strokeWidth={2} />
+                    <Area type="monotone" dataKey="ai_score" stroke="#E8973A" fill="#E8973A" fillOpacity={0.04} strokeWidth={2} />
                     <Line type="monotone" dataKey="close_price" stroke="#1A1A1A" strokeWidth={2} dot={{ r: 3, fill: '#1A1A1A', strokeWidth: 0 }} />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -292,7 +292,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
           {/* 問題3：數據矩陣 + 白話說明 */}
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-4">
-              <HelpCircle size={14} className="text-[#C83232]" />
+              <HelpCircle size={14} className="text-[#E8973A]" />
               <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">數據解析</h3>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-slate-50/50 rounded-3xl border border-slate-100">

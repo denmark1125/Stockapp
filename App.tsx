@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Compass, Layout, Wallet, LogOut, Search, Plus, Zap, Cpu,
-  ArrowUpRight, ChevronRight, X, AlertTriangle, Shield, FileDown, FileSpreadsheet, FileText
+  ArrowUpRight, ChevronRight, X, AlertTriangle, FileDown, FileSpreadsheet, FileText
 } from 'lucide-react';
 import { DashboardState, DailyAnalysis } from './types';
 import { fetchDailyAnalysis, fetchPortfolio, supabase, signOut, addToPortfolio, removeFromPortfolio, searchStockAcrossHistory, fetchLatestAiReport } from './services/supabase';
@@ -277,9 +277,7 @@ const App: React.FC = () => {
       <div className="w-full max-w-[360px]">
         {/* Logo */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-[#1A1A1A] rounded-2xl mb-4">
-            <Shield size={24} className="text-[#C83232]" />
-          </div>
+          <img src="/logo.png" alt="Shiba Analyst" className="w-20 h-20 rounded-2xl mb-4 mx-auto shadow-md ring-1 ring-slate-100" />
           <h1 className="serif-text text-3xl font-bold tracking-tight text-[#1A1A1A]">Alpha Ledger</h1>
           <p className="text-[10px] text-slate-400 uppercase tracking-[0.3em] mt-1 font-bold">智慧投資審計系統</p>
         </div>
@@ -309,7 +307,7 @@ const App: React.FC = () => {
             <input
               type="email" value={email} onChange={e => setEmail(e.target.value)} required
               placeholder="請輸入電子信箱"
-              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#C83232]/30 focus:border-[#C83232] transition-all"
+              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#E8973A]/30 focus:border-[#E8973A] transition-all"
             />
           </div>
           <div className="space-y-1">
@@ -319,7 +317,7 @@ const App: React.FC = () => {
             <input
               type="password" value={password} onChange={e => setPassword(e.target.value)} required
               placeholder={authMode === 'login' ? '請輸入密碼' : '至少 6 個字元'}
-              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#C83232]/30 focus:border-[#C83232] transition-all"
+              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#E8973A]/30 focus:border-[#E8973A] transition-all"
             />
           </div>
 
@@ -330,7 +328,7 @@ const App: React.FC = () => {
               <input
                 type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required
                 placeholder="再次輸入密碼"
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#C83232]/30 focus:border-[#C83232] transition-all"
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#E8973A]/30 focus:border-[#E8973A] transition-all"
               />
             </div>
           )}
@@ -352,7 +350,7 @@ const App: React.FC = () => {
 
           <button
             type="submit" disabled={authLoading}
-            className="w-full bg-[#1A1A1A] text-white py-4 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-[#C83232] transition-all mt-2 disabled:opacity-50"
+            className="w-full bg-[#1A1A1A] text-white py-4 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-[#E8973A] transition-all mt-2 disabled:opacity-50"
           >
             {authLoading ? '處理中...' : authMode === 'login' ? '進入指揮部' : '建立帳號'}
           </button>
@@ -361,9 +359,9 @@ const App: React.FC = () => {
         {/* 切換提示 */}
         <p className="text-center text-[11px] text-slate-400 mt-6">
           {authMode === 'login' ? (
-            <>還沒有帳號？<button onClick={() => { setAuthMode('register'); setAuthError(''); }} className="text-[#C83232] font-bold hover:underline">立即註冊</button></>
+            <>還沒有帳號？<button onClick={() => { setAuthMode('register'); setAuthError(''); }} className="text-[#E8973A] font-bold hover:underline">立即註冊</button></>
           ) : (
-            <>已有帳號？<button onClick={() => { setAuthMode('login'); setAuthError(''); }} className="text-[#C83232] font-bold hover:underline">直接登入</button></>
+            <>已有帳號？<button onClick={() => { setAuthMode('login'); setAuthError(''); }} className="text-[#E8973A] font-bold hover:underline">直接登入</button></>
           )}
         </p>
       </div>
@@ -380,7 +378,7 @@ const App: React.FC = () => {
 
       {/* ── 問題5：大盤空頭全寬警告橫幅 ── */}
       {isBearMarket && (
-        <div className="w-full bg-[#C83232] text-white px-6 py-3 flex items-center justify-center gap-3 text-center">
+        <div className="w-full bg-[#E8973A] text-white px-6 py-3 flex items-center justify-center gap-3 text-center">
           <AlertTriangle size={16} className="shrink-0 animate-pulse" />
           <p className="text-xs font-bold tracking-wide">
             🔴 大盤空頭警戒中 — 系統已封鎖新買進訊號，請專注管理現有庫存停損
@@ -414,7 +412,10 @@ const App: React.FC = () => {
       {/* ── 導覽列 ── */}
       <nav className="hidden lg:flex sticky top-0 z-[100] bg-white/80 backdrop-blur-md border-b border-slate-100 px-8 py-4 justify-between items-center">
         <div className="flex items-center gap-6">
-          <h1 className="serif-text text-xl font-bold tracking-tighter">Alpha Ledger</h1>
+          <div className="flex items-center gap-2.5">
+            <img src="/logo.png" alt="Shiba Analyst" className="w-9 h-9 rounded-xl ring-1 ring-slate-100" />
+            <h1 className="serif-text text-xl font-bold tracking-tighter">Alpha Ledger</h1>
+          </div>
           <div className="h-4 w-px bg-slate-200"></div>
           <div className="flex gap-8">
             {[
@@ -424,7 +425,7 @@ const App: React.FC = () => {
               { id: 'portfolio', label: `資產帳冊${processedData.stopLossAlerts.length > 0 ? ` 🔴${processedData.stopLossAlerts.length}` : ''}`, icon: Wallet }
             ].map(v => (
               <button key={v.id} onClick={() => setActiveView(v.id as ViewMode)}
-                className={`flex items-center gap-2 text-[11px] font-bold transition-all ${activeView === v.id ? 'text-[#C83232]' : 'text-slate-400 hover:text-slate-600'}`}>
+                className={`flex items-center gap-2 text-[11px] font-bold transition-all ${activeView === v.id ? 'text-[#E8973A]' : 'text-slate-400 hover:text-slate-600'}`}>
                 <v.icon size={14} /> {v.label}
               </button>
             ))}
@@ -444,7 +445,7 @@ const App: React.FC = () => {
               </span>
             )}
           </div>
-          <button onClick={() => setIsGlobalReportOpen(true)} className="bg-[#C83232] text-white px-5 py-2.5 rounded-full text-[10px] font-bold flex items-center gap-2 hover:bg-rose-700 transition-all shadow-lg shadow-rose-900/10">
+          <button onClick={() => setIsGlobalReportOpen(true)} className="bg-[#E8973A] text-white px-5 py-2.5 rounded-full text-[10px] font-bold flex items-center gap-2 hover:bg-[#cf8429] transition-all shadow-lg shadow-amber-900/10">
             <Cpu size={14} /> AI 深度獲利報告
           </button>
           {/* 匯出報表 */}
@@ -455,7 +456,7 @@ const App: React.FC = () => {
             {isExportOpen && (
               <div className="absolute right-0 top-12 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 w-52 z-[300]">
                 <button onClick={() => handleExport('pdf')} disabled={isExporting} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-left disabled:opacity-50">
-                  <FileText size={16} className="text-[#C83232]" />
+                  <FileText size={16} className="text-[#E8973A]" />
                   <div>
                     <p className="text-xs font-bold">專業投資日報 PDF</p>
                     <p className="text-[9px] text-slate-400">完整排版，適合存檔/分享</p>
@@ -471,7 +472,7 @@ const App: React.FC = () => {
               </div>
             )}
           </div>
-          <button onClick={() => signOut()} className="text-slate-400 hover:text-[#C83232] transition-colors"><LogOut size={16} /></button>
+          <button onClick={() => signOut()} className="text-slate-400 hover:text-[#E8973A] transition-colors"><LogOut size={16} /></button>
         </div>
       </nav>
 
@@ -491,7 +492,7 @@ const App: React.FC = () => {
             </button>
           ))}
           <div className="w-px h-8 bg-white/10 mx-2"></div>
-          <button onClick={() => { setGlobalReportType('daily'); setIsGlobalReportOpen(true); }} className="flex-1 flex flex-col items-center gap-1 text-[#C83232] active:scale-90">
+          <button onClick={() => { setGlobalReportType('daily'); setIsGlobalReportOpen(true); }} className="flex-1 flex flex-col items-center gap-1 text-[#E8973A] active:scale-90">
             <Zap size={22} fill="currentColor" />
             <span className="text-[9px] font-bold tracking-tighter">AI 報告</span>
           </button>
@@ -501,11 +502,15 @@ const App: React.FC = () => {
       {/* ── 主內容 ── */}
       <main className="max-w-[1200px] mx-auto px-4 lg:px-8 py-6">
         <header className="mb-10 lg:flex items-end justify-between border-b border-slate-100 pb-8">
+          <div className="lg:hidden flex items-center gap-2.5 mb-5">
+            <img src="/logo.png" alt="Shiba Analyst" className="w-9 h-9 rounded-xl ring-1 ring-slate-100" />
+            <span className="serif-text text-lg font-bold tracking-tight text-[#1A1A1A]">Alpha Ledger</span>
+          </div>
           <div>
             <h2 className="serif-text text-4xl lg:text-5xl font-bold tracking-tight mb-2">
               {activeView === 'elite' ? '精選雷達' : activeView === 'ai' ? 'AI 特區' : activeView === 'full' ? '市場審查' : '資產帳冊'}
             </h2>
-            <p className="text-[11px] text-[#C83232] font-black uppercase tracking-[0.4em]">
+            <p className="text-[11px] text-[#E8973A] font-black uppercase tracking-[0.4em]">
               {activeView === 'elite' ? 'Elite Conviction List' : activeView === 'ai' ? 'AI Sector Radar' : activeView === 'full' ? 'Comprehensive Audit' : 'Asset Management'}
             </p>
           </div>
@@ -528,7 +533,7 @@ const App: React.FC = () => {
         )}
 
         <div className="flex gap-2 mb-10 bg-slate-100/50 p-1.5 rounded-2xl w-fit mx-auto lg:mx-0 border border-slate-100 shadow-inner">
-          <button onClick={() => setStrategy('short')} className={`px-8 py-3 rounded-xl text-[11px] font-bold transition-all ${strategy === 'short' ? 'bg-[#C83232] text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>當沖雷達</button>
+          <button onClick={() => setStrategy('short')} className={`px-8 py-3 rounded-xl text-[11px] font-bold transition-all ${strategy === 'short' ? 'bg-[#E8973A] text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>當沖雷達</button>
           <button onClick={() => setStrategy('long')} className={`px-8 py-3 rounded-xl text-[11px] font-bold transition-all ${strategy === 'long' ? 'bg-[#1A1A1A] text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>波段佈局</button>
         </div>
 
