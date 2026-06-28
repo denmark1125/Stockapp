@@ -144,9 +144,9 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[300] flex items-end lg:items-center justify-center p-0 lg:p-6 bg-[#0A0A0A]/60 backdrop-blur-md">
-      <div className="w-full max-w-5xl bg-white rounded-t-[2.5rem] lg:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col lg:flex-row h-[92vh] lg:h-auto lg:max-h-[90vh] animate-in slide-in-from-bottom duration-500 relative">
+      <div className="w-full max-w-5xl bg-white rounded-t-[2.5rem] lg:rounded-[3rem] shadow-2xl overflow-y-auto lg:overflow-hidden flex flex-col lg:flex-row h-[92vh] lg:h-auto lg:max-h-[90vh] animate-in slide-in-from-bottom duration-500 relative">
 
-        <button onClick={onClose} className="absolute top-6 right-8 z-50 bg-slate-100 p-2 rounded-full text-slate-800 hover:bg-slate-200 transition-all"><X size={20} /></button>
+        <button onClick={onClose} className="fixed lg:absolute top-4 right-4 lg:top-6 lg:right-8 z-50 bg-slate-100 p-2 rounded-full text-slate-800 shadow-md hover:bg-slate-200 transition-all"><X size={20} /></button>
 
         {/* 左側：戰術控制 */}
         <div className="w-full lg:w-[340px] bg-[#1A1A1A] text-white p-8 lg:p-10 flex flex-col shrink-0">
@@ -259,7 +259,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
         </div>
 
         {/* 右側：資訊視覺 */}
-        <div className="flex-1 p-6 lg:p-10 overflow-y-auto scrollbar-hide bg-white">
+        <div className="w-full lg:flex-1 shrink-0 lg:shrink p-6 lg:p-10 lg:overflow-y-auto scrollbar-hide bg-white">
 
           {/* 歷史走勢圖 */}
           <div className="mb-8">
