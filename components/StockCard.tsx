@@ -98,7 +98,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
               {stock.close_price}
             </div>
             {stock.is_holding_item && (
-              <div className={`text-[11px] font-bold mt-1 flex items-center justify-end gap-1 ${isProfit ? 'text-emerald-700' : 'text-[#C83232]'}`}>
+              <div className={`text-[11px] font-bold mt-1 flex items-center justify-end gap-1 ${isProfit ? 'text-[#C83232]' : 'text-emerald-700'}`}>
                 {isProfit ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                 <span style={{ fontFamily: 'monospace' }}>{stock.profit_loss_ratio?.toFixed(1)}%</span>
                 {typeof stock.profit_loss_amount === 'number' && Number.isFinite(stock.profit_loss_amount) && (
@@ -181,7 +181,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
               <div className="w-px h-6 bg-[#DDD5C4]" />
               <div>
                 <div style={{ fontFamily: 'monospace', letterSpacing: '0.1em' }} className="text-[8px] text-[#B8A882] uppercase">NEWS</div>
-                <div style={{ fontFamily: 'monospace' }} className={`text-[13px] font-bold ${stock.news_sentiment === 'NEGATIVE' ? 'text-[#C83232]' : stock.news_sentiment?.includes('POSITIVE') ? 'text-emerald-700' : 'text-[#C87832]'}`}>
+                <div style={{ fontFamily: 'monospace' }} className={`text-[13px] font-bold ${stock.news_sentiment === 'NEGATIVE' ? 'text-emerald-700' : stock.news_sentiment?.includes('POSITIVE') ? 'text-[#C83232]' : 'text-[#C87832]'}`}>
                   {stock.news_sentiment === 'POSITIVE' ? '▲' : stock.news_sentiment === 'SLIGHT_POSITIVE' ? '△' : stock.news_sentiment === 'NEGATIVE' ? '▼' : '▽'}
                 </div>
               </div>

@@ -74,10 +74,10 @@ const NewsSentimentBlock: React.FC<{ sentiment?: string; summary?: string; score
   if (!sentiment || sentiment === 'NEUTRAL') return null;
 
   const map: Record<string, { bg: string; text: string; border: string; label: string }> = {
-    POSITIVE:        { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', label: '📈 正面利多' },
-    SLIGHT_POSITIVE: { bg: 'bg-green-50',   text: 'text-green-700',   border: 'border-green-200',   label: '🟢 略偏利多' },
-    SLIGHT_NEGATIVE: { bg: 'bg-yellow-50',  text: 'text-yellow-700',  border: 'border-yellow-200',  label: '🟡 略偏利空' },
-    NEGATIVE:        { bg: 'bg-red-50',     text: 'text-red-700',     border: 'border-red-200',     label: '📉 負面利空' },
+    POSITIVE:        { bg: 'bg-red-50',     text: 'text-red-700',     border: 'border-red-200',     label: '📈 正面利多' },
+    SLIGHT_POSITIVE: { bg: 'bg-rose-50',    text: 'text-rose-700',    border: 'border-rose-200',    label: '🔴 略偏利多' },
+    SLIGHT_NEGATIVE: { bg: 'bg-lime-50',    text: 'text-lime-700',    border: 'border-lime-200',    label: '🟢 略偏利空' },
+    NEGATIVE:        { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', label: '📉 負面利空' },
   };
   const s = map[sentiment] || map['SLIGHT_POSITIVE'];
 
@@ -88,7 +88,7 @@ const NewsSentimentBlock: React.FC<{ sentiment?: string; summary?: string; score
         <div className="flex items-center gap-2 mb-1">
           <span className={`text-[10px] font-bold ${s.text}`}>{s.label}</span>
           {score !== undefined && score !== 0 && (
-            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${score > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${score > 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
               {score > 0 ? `+${score}` : score} 分
             </span>
           )}
@@ -192,7 +192,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
 
             {/* 新聞情緒 - 只顯示 news_summary（最新資料，不用 ai_comment） */}
             {stock.news_sentiment && stock.news_sentiment !== 'NEUTRAL' && stock.news_summary && (
-              <div className={`p-4 rounded-2xl border ${stock.news_sentiment.includes('POSITIVE') ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
+              <div className={`p-4 rounded-2xl border ${stock.news_sentiment.includes('POSITIVE') ? 'bg-red-500/5 border-red-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">新聞情緒</span>
                   {stock.news_date && (
@@ -201,7 +201,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                     </span>
                   )}
                 </div>
-                <p className={`text-[11px] font-medium leading-relaxed ${stock.news_sentiment.includes('POSITIVE') ? 'text-emerald-400' : 'text-red-400'}`}>
+                <p className={`text-[11px] font-medium leading-relaxed ${stock.news_sentiment.includes('POSITIVE') ? 'text-red-400' : 'text-emerald-400'}`}>
                   {stock.news_summary}
                 </p>
               </div>
@@ -339,10 +339,10 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                   { label: '外資', value: stock.foreign_net, emoji: '🌍' },
                   { label: '自營', value: stock.dealer_net, emoji: '💼' },
                 ].map(item => (
-                  <div key={item.label} className={`p-3 rounded-2xl border text-center ${(item.value || 0) > 0 ? 'bg-emerald-50 border-emerald-100' : (item.value || 0) < 0 ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100'}`}>
+                  <div key={item.label} className={`p-3 rounded-2xl border text-center ${(item.value || 0) > 0 ? 'bg-red-50 border-red-100' : (item.value || 0) < 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-100'}`}>
                     <div className="text-lg mb-1">{item.emoji}</div>
                     <p className="text-[9px] font-bold text-slate-400 mb-1">{item.label}</p>
-                    <p className={`text-xs font-bold mono-text ${(item.value || 0) > 0 ? 'text-emerald-600' : (item.value || 0) < 0 ? 'text-red-500' : 'text-slate-400'}`}>
+                    <p className={`text-xs font-bold mono-text ${(item.value || 0) > 0 ? 'text-red-500' : (item.value || 0) < 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
                       {(item.value || 0) > 0 ? '+' : ''}{item.value?.toLocaleString() || '0'}
                     </p>
                   </div>

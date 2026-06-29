@@ -440,7 +440,7 @@ const App: React.FC = () => {
           }`}>
             <span>{isBearMarket ? '🔴 空頭' : processedData.marketRegime === 'BULL' ? '🟢 多頭' : '🟡 盤整'}</span>
             {processedData.marketChangePct != null && (
-              <span className={`mono-text font-black ${processedData.marketChangePct >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+              <span className={`mono-text font-black ${processedData.marketChangePct >= 0 ? 'text-[#C83232]' : 'text-emerald-600'}`}>
                 {processedData.marketChangePct >= 0 ? '▲' : '▼'}{Math.abs(processedData.marketChangePct).toFixed(1)}%
               </span>
             )}
