@@ -50,16 +50,17 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
   })();
 
   // 🟢 白話結論：一眼看懂「該買 / 等回檔 / 觀望 / 避開」（給看不懂英文訊號的人）
+  // 風格跟卡片一致：直角 · 左側細色條 · 平塗淡底 · 無外框（雜誌編輯結論感）
   const verdict = (() => {
     if (stock.is_holding_item) return null; // 持股看 GBrain 建議，不重複
     const sig = (stock.trade_signal || '').toUpperCase();
-    if (sig === 'SELL_STOP') return { txt: '🔴 已破停損 · 建議出場', cls: 'bg-red-50 text-red-600 border-red-200' };
-    if (sig === 'AVOID') return { txt: '🚫 避開 · 現在別碰', cls: 'bg-slate-100 text-slate-500 border-slate-200' };
+    if (sig === 'SELL_STOP') return { tag: '結論', txt: '已破停損 · 建議出場', accent: '#C83232', bg: '#FBF1EF', fg: '#C83232' };
+    if (sig === 'AVOID') return { tag: '結論', txt: '避開 · 現在別碰', accent: '#B5AE9E', bg: '#F2EFE7', fg: '#8B8270' };
     if (isBuySignal) {
-      if (entryFeasibility === 'chasing') return { txt: '⏸ 好股但漲多了 · 等回檔再買', cls: 'bg-amber-50 text-[#C87832] border-amber-300' };
-      return { txt: '✅ 可考慮買進', cls: 'bg-emerald-50 text-emerald-700 border-emerald-300' };
+      if (entryFeasibility === 'chasing') return { tag: '結論', txt: '好股但漲多了 · 等回檔再買', accent: '#C87832', bg: '#FBF4E9', fg: '#A8702A' };
+      return { tag: '可買', txt: '可考慮買進', accent: '#C83232', bg: '#FBF1EF', fg: '#C83232' };
     }
-    return { txt: '👀 觀望 · 先別動', cls: 'bg-slate-50 text-slate-500 border-slate-200' };
+    return { tag: '結論', txt: '觀望 · 先別動', accent: '#B5AE9E', bg: '#F2EFE7', fg: '#8B8270' };
   })();
 
   return (
@@ -172,8 +173,12 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
 
         {/* ── 🟢 白話結論（一眼看懂該不該買）── */}
         {verdict && (
-          <div className={`mb-3 px-4 py-2.5 rounded-2xl border text-center ${verdict.cls}`}>
-            <span className="text-[13px] font-black tracking-wide">{verdict.txt}</span>
+          <div className="mb-3 flex items-stretch" style={{ backgroundColor: verdict.bg }}>
+            <div className="w-[3px] shrink-0" style={{ backgroundColor: verdict.accent }} />
+            <div className="flex items-baseline gap-2 px-3.5 py-2.5">
+              <span style={{ fontFamily: 'monospace', letterSpacing: '0.18em', color: verdict.accent }} className="text-[8px] font-bold uppercase">{verdict.tag}</span>
+              <span style={{ fontFamily: "'Georgia', 'Noto Serif TC', serif", color: verdict.fg }} className="text-[14px] font-bold leading-tight">{verdict.txt}</span>
+            </div>
           </div>
         )}
 
