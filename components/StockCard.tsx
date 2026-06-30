@@ -69,10 +69,11 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
       const prem = (stock.close_price / stock.trade_entry - 1) * 100;
       reasons.push(prem > 3 ? `已比買點高${prem.toFixed(0)}%` : `現價貼近買點(${prem >= 0 ? '+' : ''}${prem.toFixed(1)}%)`);
     }
-    // 🧪 同類訊號的歷史命中率（回測算的真實統計，n≥30 才講）→ 證明結論是統計不是生成
+    // 🧪 同類訊號的歷史命中率（回測算的真實統計，n≥30 才講）→ 證明結論是統計不是生成。
+    //    只掛在「買進類」結論上：命中定義＝之後漲贏門檻，對觀望/避開講命中率不通，反而自打嘴巴。
     const histKey = (stock.trade_signal || '').toUpperCase();
     const hist = signalStats?.[histKey];
-    if (hist && hist.n >= 30) {
+    if (isBuySignal && hist && hist.n >= 30) {
       reasons.push(`同類訊號近半年命中${(hist.wr / 10).toFixed(1)}成(${hist.n}次)`);
     }
 
