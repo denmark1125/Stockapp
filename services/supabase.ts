@@ -160,6 +160,39 @@ export const removeFromPortfolio = async (stockCode: string): Promise<void> => {
   if (error) throw error;
 };
 
+// GBrain 每日持股建議（holding_advice，RLS 只回本人）→ {純代碼: 建議}
+export const fetchHoldingAdvice = async (): Promise<Record<string, { action_label?: string; reason?: string; signal?: string; opportunity_score?: number; analysis_date?: string }>> => {
+  try {
+    const { data, error } = await supabase
+      .from('holding_advice')
+      .select('stock_code, action_label, reason, signal, opportunity_score, analysis_date')
+      .order('analysis_date', { ascending: false });
+    if (error) throw error;
+    const map: Record<string, any> = {};
+    (data || []).forEach((r: any) => {
+      const k = String(r.stock_code || '').replace(/\.(TW|TWO)$/i, '').toUpperCase();
+      if (k && !map[k]) map[k] = r; // 取每檔最新一筆
+    });
+    return map;
+  } catch (err) {
+    console.error('[Supabase] fetchHoldingAdvice Error:', err);
+    return {};
+  }
+};
+
+// 編輯持股（改買價/張數）
+export const updatePortfolio = async (stockCode: string, buyPrice: number, quantity: number): Promise<void> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('請先登入');
+  const patch = { buy_price: buyPrice, quantity };
+  let { error } = await supabase.from('portfolio').update(patch).eq('stock_code', stockCode).eq('user_id', user.id);
+  if (error) {
+    const retry = await supabase.from('portfolio').update(patch).eq('stock_code', stockCode);
+    error = retry.error;
+  }
+  if (error) throw error;
+};
+
 export const fetchLatestAiReport = async (): Promise<string | null> => {
   try {
     const { data, error } = await supabase

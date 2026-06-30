@@ -113,26 +113,48 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
 
         <div className="border-t border-[#DDD5C4] mb-3" />
 
-        {/* ── 持股資訊：買價／股數／損益金額（讓用戶看得到自己登錄的數字）── */}
+        {/* ── 持股資訊：買價／損益平衡／股數／損益金額 ── */}
         {stock.is_holding_item && (
-          <div className="grid grid-cols-3 gap-2 mb-3">
+          <>
+          <div className="grid grid-cols-4 gap-1.5 mb-2">
             <div className="bg-[#F5F1E8] rounded-xl py-2 text-center">
               <p className="text-[8px] font-bold text-[#B8A882] uppercase tracking-wider mb-0.5">買入價</p>
-              <p className="text-[14px] font-bold text-[#1A1A1A]" style={{ fontFamily: 'monospace' }}>{stock.buy_price ? Number(stock.buy_price).toFixed(2) : '—'}</p>
+              <p className="text-[13px] font-bold text-[#1A1A1A]" style={{ fontFamily: 'monospace' }}>{stock.buy_price ? Number(stock.buy_price).toFixed(2) : '—'}</p>
+            </div>
+            <div className="bg-[#F5F1E8] rounded-xl py-2 text-center">
+              <p className="text-[8px] font-bold text-[#B8A882] uppercase tracking-wider mb-0.5">損益平衡</p>
+              <p className="text-[13px] font-bold text-[#5A4E3C]" style={{ fontFamily: 'monospace' }}>{stock.breakeven_price ? Number(stock.breakeven_price).toFixed(2) : '—'}</p>
             </div>
             <div className="bg-[#F5F1E8] rounded-xl py-2 text-center">
               <p className="text-[8px] font-bold text-[#B8A882] uppercase tracking-wider mb-0.5">股數</p>
-              <p className="text-[14px] font-bold text-[#1A1A1A]" style={{ fontFamily: 'monospace' }}>{stock.quantity ? Number(stock.quantity).toLocaleString() : '—'}</p>
+              <p className="text-[13px] font-bold text-[#1A1A1A]" style={{ fontFamily: 'monospace' }}>{stock.quantity ? Number(stock.quantity).toLocaleString() : '—'}</p>
             </div>
             <div className="bg-[#F5F1E8] rounded-xl py-2 text-center">
-              <p className="text-[8px] font-bold text-[#B8A882] uppercase tracking-wider mb-0.5">損益金額</p>
-              <p className={`text-[14px] font-bold ${isProfit ? 'text-[#C83232]' : 'text-emerald-700'}`} style={{ fontFamily: 'monospace' }}>
+              <p className="text-[8px] font-bold text-[#B8A882] uppercase tracking-wider mb-0.5">損益額</p>
+              <p className={`text-[13px] font-bold ${isProfit ? 'text-[#C83232]' : 'text-emerald-700'}`} style={{ fontFamily: 'monospace' }}>
                 {typeof stock.profit_loss_amount === 'number' && Number.isFinite(stock.profit_loss_amount)
                   ? `${stock.profit_loss_amount >= 0 ? '+' : '−'}${Math.abs(Math.round(stock.profit_loss_amount)).toLocaleString()}`
                   : '—'}
               </p>
             </div>
           </div>
+          {/* 🛡️ 防雷警告（持股若是處置/注意/全額交割股）*/}
+          {stock.risk_flag && (
+            <div className="mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-[10px] font-bold text-red-600">
+              {stock.risk_flag}｜跌停鎖死時停損也賣不掉，單檔別重壓
+            </div>
+          )}
+          {/* 🐕 GBrain 持股建議（每日更新，讓你買完不是沒人理）*/}
+          {stock.gbrain_action && (
+            <div className="mb-3 px-3 py-2.5 bg-[#1A1A1A] rounded-2xl">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[8px] font-black text-[#E8973A] uppercase tracking-widest">🐕 GBrain 今日建議</span>
+              </div>
+              <p className="text-[12px] font-bold text-white leading-snug">{stock.gbrain_action}</p>
+              {stock.gbrain_reason && <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">{stock.gbrain_reason}</p>}
+            </div>
+          )}
+          </>
         )}
 
         {/* ── 訊號標籤 + 警告列 ── */}

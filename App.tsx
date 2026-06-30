@@ -3,8 +3,9 @@ import {
   Compass, Layout, Wallet, LogOut, Search, Plus, Zap, Cpu,
   ArrowUpRight, ChevronRight, X, AlertTriangle, FileDown, FileSpreadsheet, FileText
 } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { DashboardState, DailyAnalysis } from './types';
-import { fetchDailyAnalysis, fetchPortfolio, supabase, signOut, addToPortfolio, removeFromPortfolio, searchStockAcrossHistory, fetchLatestAiReport } from './services/supabase';
+import { fetchDailyAnalysis, fetchPortfolio, supabase, signOut, addToPortfolio, removeFromPortfolio, updatePortfolio, fetchHoldingAdvice, searchStockAcrossHistory, fetchLatestAiReport } from './services/supabase';
 import { exportToExcel, exportToPdf } from './utils/exportReport';
 import { ActionCard } from './components/StockCard';
 import { SystemStatus } from './components/SystemStatus';
@@ -46,6 +47,7 @@ const App: React.FC = () => {
 
   const [stockAiReport, setStockAiReport] = useState<{text: string, links: {title: string, uri: string}[]} | null>(null);
   const [isStockAiLoading, setIsStockAiLoading] = useState(false);
+  const [holdingAdvice, setHoldingAdvice] = useState<Record<string, any>>({}); // GBrain 持股建議（純代碼→建議）
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -57,7 +59,8 @@ const App: React.FC = () => {
     if (!session) return;
     setState(prev => ({ ...prev, loading: true }));
     try {
-      const [marketData, portfolioData] = await Promise.all([fetchDailyAnalysis(), fetchPortfolio()]);
+      const [marketData, portfolioData, adviceMap] = await Promise.all([fetchDailyAnalysis(), fetchPortfolio(), fetchHoldingAdvice()]);
+      setHoldingAdvice(adviceMap);
       setState({ data: marketData, portfolio: portfolioData, loading: false, error: null, lastUpdated: new Date() });
     } catch (err: any) {
       setState(prev => ({ ...prev, loading: false, error: err.message }));
@@ -122,6 +125,8 @@ const App: React.FC = () => {
     const portfolioList = state.portfolio.map(p => {
       const mkt = latestSnapshotMap.get(normCode(p.stock_code));
       const currentPrice = mkt ? Number(mkt.close_price) : Number(p.buy_price);
+      const advice = holdingAdvice[normCode(p.stock_code)] || null; // GBrain 持股建議
+      const breakeven = Number(p.buy_price) * 1.00585; // 損益平衡＝成交價＋來回手續費(0.1425%×2)＋證交稅(0.3%)
       return {
         ...(mkt || {
           id: p.id, stock_code: p.stock_code, stock_name: p.stock_name,
@@ -136,6 +141,10 @@ const App: React.FC = () => {
         // quantity 存的是「股數」，實際損益金額 = (現價-成本) × 股數
         profit_loss_amount: (currentPrice - p.buy_price) * Number(p.quantity),
         is_holding_item: true,
+        breakeven_price: breakeven,
+        gbrain_action: advice?.action_label || null,
+        gbrain_reason: advice?.reason || null,
+        portfolio_id: p.id,
       } as DailyAnalysis;
     });
 
@@ -144,6 +153,17 @@ const App: React.FC = () => {
       s.trade_signal === 'SELL_STOP' ||
       (s.trade_stop && s.close_price < s.trade_stop)
     );
+
+    // 💼 帳冊統計（像三竹：總成本/總市值/總損益）＋ 配置占比（圖表用）
+    const totalCost = portfolioList.reduce((s, p) => s + (Number((p as any).buy_price) || 0) * (Number((p as any).quantity) || 0), 0);
+    const totalValue = portfolioList.reduce((s, p) => s + (Number(p.close_price) || 0) * (Number((p as any).quantity) || 0), 0);
+    const totalPL = totalValue - totalCost;
+    const totalPLPct = totalCost > 0 ? (totalPL / totalCost) * 100 : 0;
+    const allocation = portfolioList
+      .map(p => ({ name: p.stock_name || '', value: (Number(p.close_price) || 0) * (Number((p as any).quantity) || 0), pl: Number((p as any).profit_loss_amount) || 0 }))
+      .filter(x => x.value > 0)
+      .sort((a, b) => b.value - a.value);
+    const portfolioSummary = { totalCost, totalValue, totalPL, totalPLPct, allocation, count: portfolioList.length };
 
     // 🤖 AI 特區：只收 AI 題材股，依高機會分數/AI評分排序（好股排前面）
     const aiList = [...latestStocks]
@@ -163,12 +183,13 @@ const App: React.FC = () => {
       aiList,
       fullList: baseList,
       portfolioList,
+      portfolioSummary,
       stopLossAlerts,
       latestDate,
       isCurrent: latestDate === format(new Date(), 'yyyy-MM-dd'),
       searchResults: searchQuery ? latestStocks.filter(s => s.stock_name.includes(searchQuery) || s.stock_code.includes(searchQuery)).slice(0, 5) : []
     };
-  }, [state.data, state.portfolio, strategy, searchQuery]);
+  }, [state.data, state.portfolio, strategy, searchQuery, holdingAdvice]);
 
   const handleRunStockAi = async (stock: DailyAnalysis) => {
     setIsStockAiLoading(true);
@@ -250,6 +271,15 @@ const App: React.FC = () => {
       if (stock.is_holding_item) await removeFromPortfolio(stock.stock_code);
       else { if (buyPrice === undefined || quantity === undefined) return; await addToPortfolio(stock, buyPrice, quantity); }
       await loadData();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleUpdatePortfolio = async (stock: DailyAnalysis, buyPrice: number, quantity: number) => {
+    try {
+      if (!Number.isFinite(buyPrice) || !Number.isFinite(quantity)) return;
+      await updatePortfolio(stock.stock_code, buyPrice, quantity);
+      await loadData();
+      setSelectedStock(null); // 關閉彈窗，回帳冊看更新後的數字
     } catch (e) { console.error(e); }
   };
 
@@ -542,6 +572,46 @@ const App: React.FC = () => {
           <button onClick={() => setStrategy('long')} className={`px-8 py-3 rounded-xl text-[11px] font-bold transition-all ${strategy === 'long' ? 'bg-[#1A1A1A] text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>波段佈局</button>
         </div>
 
+        {/* 💼 帳冊統計（像三竹）：總損益大卡 ＋ 持股配置圓餅 */}
+        {activeView === 'portfolio' && processedData.portfolioList.length > 0 && (() => {
+          const sm = processedData.portfolioSummary;
+          const up = sm.totalPL >= 0; // 台灣慣例：賺=紅、賠=綠
+          const plColor = up ? '#C83232' : '#10b981';
+          const PIE = ['#E8973A', '#1A1A1A', '#C83232', '#D9A441', '#6B7280', '#C87832', '#8B5E3C', '#A8A29E'];
+          const fmt = (n: number) => Math.round(n).toLocaleString();
+          return (
+            <div className="mb-8 grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2 bg-[#1A1A1A] text-white rounded-3xl p-6 lg:p-8">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">總資產損益</span>
+                  <span className="text-[10px] text-slate-500 font-bold">{sm.count} 檔持股</span>
+                </div>
+                <div className="text-4xl lg:text-5xl font-bold leading-none" style={{ fontFamily: 'monospace', color: plColor }}>
+                  {up ? '+' : '−'}{fmt(Math.abs(sm.totalPL))}<span className="text-lg ml-1">元</span>
+                </div>
+                <div className="mt-1 text-sm font-bold" style={{ color: plColor }}>
+                  {up ? '▲' : '▼'} {Math.abs(sm.totalPLPct).toFixed(2)}%
+                </div>
+                <div className="flex gap-8 mt-5 pt-4 border-t border-white/10">
+                  <div><p className="text-[9px] text-slate-500 font-bold uppercase mb-0.5">總成本</p><p className="text-sm font-bold" style={{ fontFamily: 'monospace' }}>{fmt(sm.totalCost)}</p></div>
+                  <div><p className="text-[9px] text-slate-500 font-bold uppercase mb-0.5">總市值</p><p className="text-sm font-bold" style={{ fontFamily: 'monospace' }}>{fmt(sm.totalValue)}</p></div>
+                </div>
+              </div>
+              <div className="bg-white rounded-3xl p-4 border border-slate-100">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 px-2">持股配置（市值占比）</p>
+                <ResponsiveContainer width="100%" height={170}>
+                  <PieChart>
+                    <Pie data={sm.allocation} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={42} outerRadius={70} paddingAngle={2}>
+                      {sm.allocation.map((_, i) => <Cell key={i} fill={PIE[i % PIE.length]} />)}
+                    </Pie>
+                    <Tooltip formatter={(v: number, n: string) => [`${fmt(v)} 元`, n]} contentStyle={{ borderRadius: '14px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', fontSize: '11px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* 🔍 市場列表快速搜尋：打代碼或名稱即時篩選，不用一筆一筆找 */}
         {activeView === 'full' && (
           <div className="relative mb-6">
@@ -692,6 +762,7 @@ const App: React.FC = () => {
           onClose={() => { setSelectedStock(null); setStockAiReport(null); }}
           onRunAi={() => handleRunStockAi(selectedStock)}
           onTogglePortfolio={handleTogglePortfolio}
+          onUpdatePortfolio={handleUpdatePortfolio}
           aiReport={stockAiReport}
           isAiLoading={isStockAiLoading}
         />

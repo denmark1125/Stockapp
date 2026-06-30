@@ -52,6 +52,10 @@ export interface DailyAnalysis {
   quantity?: number;
   profit_loss_ratio?: number;
   profit_loss_amount?: number;
+  breakeven_price?: number;   // 損益平衡價（含手續費+證交稅）
+  gbrain_action?: string | null;  // GBrain 持股建議標籤
+  gbrain_reason?: string | null;  // GBrain 建議理由
+  risk_flag?: string | null;  // 防雷：處置/注意/全額交割
 }
 
 export interface PortfolioItem {

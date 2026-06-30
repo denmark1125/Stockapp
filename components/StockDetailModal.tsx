@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   X, History, Loader2,
   TrendingUp, TrendingDown, PlusCircle, MinusCircle,
-  Newspaper, HelpCircle, Tag
+  Newspaper, HelpCircle, Tag, Pencil
 } from 'lucide-react';
 import { DailyAnalysis } from '../types';
 import { fetchStockHistory } from '../services/supabase';
@@ -16,6 +16,7 @@ interface StockDetailModalProps {
   onClose: () => void;
   onRunAi?: () => void;
   onTogglePortfolio: (stock: DailyAnalysis, buyPrice?: number, quantity?: number) => Promise<void>;
+  onUpdatePortfolio?: (stock: DailyAnalysis, buyPrice: number, quantity: number) => Promise<void>;
   aiReport?: { text: string; links: { title: string; uri: string }[] } | null;
   isAiLoading?: boolean;
 }
@@ -100,7 +101,7 @@ const NewsSentimentBlock: React.FC<{ sentiment?: string; summary?: string; score
 };
 
 export const StockDetailModal: React.FC<StockDetailModalProps> = ({
-  stock, onClose, onRunAi, onTogglePortfolio, aiReport, isAiLoading
+  stock, onClose, onRunAi, onTogglePortfolio, onUpdatePortfolio, aiReport, isAiLoading
 }) => {
   const [history, setHistory] = useState<DailyAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,6 +109,19 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
   const [showAddForm, setShowAddForm] = useState(false);
   const [inputPrice, setInputPrice] = useState(stock.close_price.toString());
   const [inputQuantity, setInputQuantity] = useState('1');
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editPrice, setEditPrice] = useState(stock.buy_price != null ? String(stock.buy_price) : '');
+  const [editQty, setEditQty] = useState(stock.quantity != null ? String(stock.quantity) : '');
+
+  const handleEdit = async () => {
+    if (!onUpdatePortfolio) return;
+    setIsProcessing(true);
+    try {
+      await onUpdatePortfolio(stock, parseFloat(editPrice), parseFloat(editQty));
+      setShowEditForm(false);
+    } catch (e) { console.error(e); }
+    finally { setIsProcessing(false); }
+  };
 
   const isStopped = !!(stock.is_holding_item && stock.trade_stop && stock.close_price < stock.trade_stop);
 
@@ -245,6 +259,34 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                 </div>
               </div>
             )}
+            {/* 編輯持股：改買價/張數（held item 才有）*/}
+            {stock.is_holding_item && onUpdatePortfolio && (
+              <>
+                {showEditForm && (
+                  <div className="bg-white/5 p-5 rounded-3xl border border-white/5 space-y-4 animate-in slide-in-from-bottom-4 duration-300">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-500 block mb-1">成交價（買入價）</label>
+                        <input type="number" value={editPrice} onChange={e => setEditPrice(e.target.value)} className="w-full bg-black border border-white/10 rounded-xl px-4 py-2 text-sm font-bold mono-text text-white outline-none" />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-500 block mb-1">股數</label>
+                        <input type="number" value={editQty} onChange={e => setEditQty(e.target.value)} className="w-full bg-black border border-white/10 rounded-xl px-4 py-2 text-sm font-bold mono-text text-white outline-none" />
+                      </div>
+                    </div>
+                    <p className="text-[9px] text-slate-500">提示：填你「實際成交價」即可，系統會自動算含手續費的損益平衡。</p>
+                  </div>
+                )}
+                <button
+                  onClick={() => { if (showEditForm) { handleEdit(); } else { setShowEditForm(true); } }}
+                  disabled={isProcessing}
+                  className={`w-full py-4 rounded-2xl flex items-center justify-center gap-2 text-[11px] font-bold transition-all ${showEditForm ? 'bg-[#E8973A] text-white' : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'}`}
+                >
+                  {isProcessing && showEditForm ? <Loader2 size={16} className="animate-spin" /> : <Pencil size={15} />}
+                  {showEditForm ? '確認修改' : '✏️ 編輯買價／張數'}
+                </button>
+              </>
+            )}
             <button
               onClick={handleAction} disabled={isProcessing}
               className={`w-full py-4 rounded-2xl flex items-center justify-center gap-2 text-[11px] font-bold transition-all
@@ -252,7 +294,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                   ? 'bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20'
                   : showAddForm ? 'bg-[#E8973A] text-white' : 'bg-white text-black hover:bg-slate-200'}`}
             >
-              {isProcessing ? <Loader2 size={16} className="animate-spin" /> : stock.is_holding_item ? <MinusCircle size={16} /> : <PlusCircle size={16} />}
+              {isProcessing && !showEditForm ? <Loader2 size={16} className="animate-spin" /> : stock.is_holding_item ? <MinusCircle size={16} /> : <PlusCircle size={16} />}
               {stock.is_holding_item ? '移除此項持股' : showAddForm ? '確認登錄帳冊' : '登錄今日持股'}
             </button>
           </div>
