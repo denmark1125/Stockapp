@@ -184,13 +184,15 @@ const App: React.FC = () => {
       .sort((a, b) => b.value - a.value);
     const portfolioSummary = { totalCost, totalValue, totalPL, totalPLPct, allocation, count: portfolioList.length };
 
-    // 🤖 AI 特區：只收 AI 題材股，依高機會分數/AI評分排序（好股排前面）
+    // 🤖 AI 特區：只收 AI 題材股；排序＝① 可進場優先於追高 ② 再依高機會/AI分數
     const aiList = [...latestStocks]
       .filter(s => s.ai_theme)
-      .sort((a, b) =>
-        (Number(b.opportunity_score) || Number(b.ai_score) || 0) -
-        (Number(a.opportunity_score) || Number(a.ai_score) || 0)
-      );
+      .sort((a, b) => {
+        const ca = isChasing(a) ? 1 : 0, cb = isChasing(b) ? 1 : 0;
+        if (ca !== cb) return ca - cb;
+        return (Number(b.opportunity_score) || Number(b.ai_score) || 0) -
+               (Number(a.opportunity_score) || Number(a.ai_score) || 0);
+      });
 
     return {
       marketBrief,

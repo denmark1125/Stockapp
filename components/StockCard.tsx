@@ -49,6 +49,19 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
     return 'chasing';
   })();
 
+  // 🟢 白話結論：一眼看懂「該買 / 等回檔 / 觀望 / 避開」（給看不懂英文訊號的人）
+  const verdict = (() => {
+    if (stock.is_holding_item) return null; // 持股看 GBrain 建議，不重複
+    const sig = (stock.trade_signal || '').toUpperCase();
+    if (sig === 'SELL_STOP') return { txt: '🔴 已破停損 · 建議出場', cls: 'bg-red-50 text-red-600 border-red-200' };
+    if (sig === 'AVOID') return { txt: '🚫 避開 · 現在別碰', cls: 'bg-slate-100 text-slate-500 border-slate-200' };
+    if (isBuySignal) {
+      if (entryFeasibility === 'chasing') return { txt: '⏸ 好股但漲多了 · 等回檔再買', cls: 'bg-amber-50 text-[#C87832] border-amber-300' };
+      return { txt: '✅ 可考慮買進', cls: 'bg-emerald-50 text-emerald-700 border-emerald-300' };
+    }
+    return { txt: '👀 觀望 · 先別動', cls: 'bg-slate-50 text-slate-500 border-slate-200' };
+  })();
+
   return (
     <div
       onClick={onSelect}
@@ -157,7 +170,14 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
           </>
         )}
 
-        {/* ── 訊號標籤 + 警告列 ── */}
+        {/* ── 🟢 白話結論（一眼看懂該不該買）── */}
+        {verdict && (
+          <div className={`mb-3 px-4 py-2.5 rounded-2xl border text-center ${verdict.cls}`}>
+            <span className="text-[13px] font-black tracking-wide">{verdict.txt}</span>
+          </div>
+        )}
+
+        {/* ── 訊號標籤 + 警告列（細節，給想懂的人）── */}
         <div className="flex items-center justify-between mb-3">
           <span className={`text-[11px] font-bold tracking-[0.2em] uppercase ${style.labelColor}`} style={{ fontFamily: 'monospace' }}>
             {style.labelText}
