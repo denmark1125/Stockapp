@@ -91,7 +91,21 @@ const App: React.FC = () => {
     const latestDate = allDates[0] || null;
     const latestData = latestDate ? state.data.filter(s => s.analysis_date === latestDate) : [];
     const marketBrief = latestData.find(s => s.stock_code === 'MARKET_BRIEF') || null;
-    const latestStocks = latestData.filter(s => s.stock_code !== 'MARKET_BRIEF' && s.stock_code !== 'MARKET_STATE');
+    const latestStocks = latestData.filter(s => s.stock_code !== 'MARKET_BRIEF' && s.stock_code !== 'MARKET_STATE' && s.stock_code !== 'SIGNAL_STATS');
+
+    // 📊 訊號歷史命中率（回測寫進 SIGNAL_STATS 列的 ai_comment，JSON）→ 卡片「同類訊號過去命中 X 成」
+    const signalStats: Record<string, { wr: number; n: number; avg?: number }> = (() => {
+      const row = state.data.find(s => s.stock_code === 'SIGNAL_STATS');
+      if (!row?.ai_comment) return {};
+      try {
+        const parsed = JSON.parse(row.ai_comment as string);
+        const out: Record<string, { wr: number; n: number; avg?: number }> = {};
+        Object.entries(parsed).forEach(([k, v]: [string, any]) => {
+          if (k !== '_meta' && v && typeof v.wr === 'number') out[k.toUpperCase()] = v;
+        });
+        return out;
+      } catch { return {}; }
+    })();
 
     // 取得最新大盤狀態
     const marketStateRow = latestData.find(s => s.stock_code === 'MARKET_STATE');
@@ -200,6 +214,7 @@ const App: React.FC = () => {
       marketChangePct,
       marketDayCaution,
       marketCautionMsg,
+      signalStats,
       eliteList,
       aiList,
       fullList: baseList,
@@ -674,7 +689,7 @@ const App: React.FC = () => {
               return code.includes(q) || name.includes(q);
             })
             .map(s => (
-              <ActionCard key={s.id} stock={s} strategyMode={strategy} onSelect={() => { setSelectedStock(s); setStockAiReport(null); }} />
+              <ActionCard key={s.id} stock={s} strategyMode={strategy} signalStats={processedData.signalStats} onSelect={() => { setSelectedStock(s); setStockAiReport(null); }} />
             ))}
 
           {activeView === 'full' && marketSearch.trim() && processedData.fullList.filter(s => {

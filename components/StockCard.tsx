@@ -6,6 +6,7 @@ interface ActionCardProps {
   stock: DailyAnalysis;
   onSelect: () => void;
   strategyMode: 'short' | 'long';
+  signalStats?: Record<string, { wr: number; n: number; avg?: number }>; // 訊號歷史命中率
 }
 
 const resolveSignal = (signal: string, score: number, isHolding: boolean): string => {
@@ -34,8 +35,9 @@ const getSignalStyle = (rawSignal: string, score: number, isHolding: boolean, is
   }
 };
 
-export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strategyMode }) => {
+export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strategyMode, signalStats }) => {
   const score = strategyMode === 'short' ? (Number(stock.score_short) || 0) : (Number(stock.score_long) || 0);
+  const modeLabel = strategyMode === 'short' ? '當沖' : '波段'; // 結論依據要標清楚是哪一種策略的分數
   const isProfit = (stock.profit_loss_ratio || 0) >= 0;
   const isStopped = !!(stock.is_holding_item && stock.trade_stop && stock.close_price < stock.trade_stop);
   const style = getSignalStyle(stock.trade_signal, score, !!stock.is_holding_item, isStopped);
@@ -57,15 +59,21 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
     if (stock.is_holding_item) return null; // 持股看 GBrain 建議，不重複
     const sig = (stock.trade_signal || '').toUpperCase();
 
-    // 收集「這檔此刻的客觀事實」當作結論依據
+    // 收集「這檔此刻的客觀事實」當作結論依據（分數要標明是當沖還是波段，避免切換後看似矛盾）
     const reasons: string[] = [];
-    if (score > 0) reasons.push(`技術${Math.round(score)}分`);
+    if (score > 0) reasons.push(`${modeLabel}技術${Math.round(score)}分`);
     if (typeof stock.vol_ratio === 'number' && stock.vol_ratio > 0) {
       reasons.push(stock.vol_ratio >= 1.5 ? `量增${stock.vol_ratio.toFixed(1)}倍` : `量能${stock.vol_ratio.toFixed(1)}倍`);
     }
     if (isBuySignal && stock.trade_entry) {
       const prem = (stock.close_price / stock.trade_entry - 1) * 100;
       reasons.push(prem > 3 ? `已比買點高${prem.toFixed(0)}%` : `現價貼近買點(${prem >= 0 ? '+' : ''}${prem.toFixed(1)}%)`);
+    }
+    // 🧪 同類訊號的歷史命中率（回測算的真實統計，n≥30 才講）→ 證明結論是統計不是生成
+    const histKey = (stock.trade_signal || '').toUpperCase();
+    const hist = signalStats?.[histKey];
+    if (hist && hist.n >= 30) {
+      reasons.push(`同類訊號近半年命中${(hist.wr / 10).toFixed(1)}成(${hist.n}次)`);
     }
 
     if (sig === 'SELL_STOP') return { tag: '結論', txt: '已破停損 · 建議出場', accent: '#C83232', bg: '#FBF1EF', fg: '#C83232', reasons: [`現價${stock.close_price}`, stock.trade_stop ? `跌破停損${stock.trade_stop}` : ''].filter(Boolean) };
