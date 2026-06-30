@@ -87,7 +87,10 @@ const App: React.FC = () => {
       if (scores && scores.length < 5) scores.push(strategy === 'short' ? Number(item.score_short || 0) : Number(item.score_long || 0));
     });
 
-    const allDates = [...new Set(state.data.map(s => s.analysis_date))].sort().reverse();
+    // ⚠️ 算「最新日期」只看真正的股票列，略過 MARKET_*/SIGNAL_STATS 這些特殊列——
+    //    否則回測寫一筆「今天」的 SIGNAL_STATS、但今天選股還沒跑時，latestDate 會指到沒有股票的日期 → 清單變空白
+    const SPECIAL_CODES = new Set(['MARKET_BRIEF', 'MARKET_STATE', 'SIGNAL_STATS']);
+    const allDates = [...new Set(state.data.filter(s => !SPECIAL_CODES.has(s.stock_code)).map(s => s.analysis_date))].sort().reverse();
     const latestDate = allDates[0] || null;
     const latestData = latestDate ? state.data.filter(s => s.analysis_date === latestDate) : [];
     const marketBrief = latestData.find(s => s.stock_code === 'MARKET_BRIEF') || null;
