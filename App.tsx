@@ -617,7 +617,8 @@ const App: React.FC = () => {
                     onClick={() => {
                       const stub = {
                         id: 'manual-' + Date.now(),
-                        stock_code: code, stock_name: code,
+                        // 名稱先放純代碼當暫名；下次掃描分析到後，App 會自動改顯示真名（合併優先用 daily_analysis 的 stock_name）
+                        stock_code: code, stock_name: digits,
                         close_price: 0, analysis_date: 'N/A', trade_signal: 'HOLD',
                         ai_score: 0, score_short: 0, score_long: 0,
                         roe: null, revenue_yoy: null, pe_ratio: null, vol_ratio: 1, volatility: 0,
