@@ -37,6 +37,7 @@ const App: React.FC = () => {
   const [isManualAdding, setIsManualAdding] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [manualSearchResults, setManualSearchResults] = useState<DailyAnalysis[]>([]);
+  const [marketSearch, setMarketSearch] = useState(''); // 市場列表快速搜尋（代碼/名稱）
 
   const [isGlobalReportOpen, setIsGlobalReportOpen] = useState(false);
   const [globalReportType, setGlobalReportType] = useState<'daily' | 'weekly'>('daily');
@@ -537,6 +538,23 @@ const App: React.FC = () => {
           <button onClick={() => setStrategy('long')} className={`px-8 py-3 rounded-xl text-[11px] font-bold transition-all ${strategy === 'long' ? 'bg-[#1A1A1A] text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>波段佈局</button>
         </div>
 
+        {/* 🔍 市場列表快速搜尋：打代碼或名稱即時篩選，不用一筆一筆找 */}
+        {activeView === 'full' && (
+          <div className="relative mb-6">
+            <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" />
+            <input
+              type="text"
+              placeholder="🔍 搜尋代碼或名稱（如 2330、台積電）"
+              value={marketSearch}
+              onChange={e => setMarketSearch(e.target.value)}
+              className="w-full bg-white border border-slate-200 rounded-2xl pl-14 pr-12 py-4 text-sm font-bold outline-none focus:ring-2 focus:ring-[#E8973A]/30 focus:border-[#E8973A] transition-all shadow-sm"
+            />
+            {marketSearch && (
+              <button onClick={() => setMarketSearch('')} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#1A1A1A] text-sm font-bold">✕</button>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {activeView === 'portfolio' && (
             <div onClick={() => setIsManualAdding(!isManualAdding)} className="group relative rounded-[2.5rem] border-2 border-dashed border-slate-200 p-8 flex flex-col items-center justify-center gap-3 transition-all hover:bg-white hover:border-[#1A1A1A] cursor-pointer h-full min-h-[220px]">
@@ -545,9 +563,29 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {(activeView === 'elite' ? processedData.eliteList : activeView === 'ai' ? processedData.aiList : activeView === 'full' ? processedData.fullList : processedData.portfolioList).map(s => (
-            <ActionCard key={s.id} stock={s} strategyMode={strategy} onSelect={() => { setSelectedStock(s); setStockAiReport(null); }} />
-          ))}
+          {(activeView === 'elite' ? processedData.eliteList : activeView === 'ai' ? processedData.aiList : activeView === 'full' ? processedData.fullList : processedData.portfolioList)
+            .filter(s => {
+              const q = marketSearch.trim().toLowerCase();
+              if (!q || activeView !== 'full') return true;
+              const code = (s.stock_code || '').replace('.TW', '').toLowerCase();
+              const name = (s.stock_name || '').toLowerCase();
+              return code.includes(q) || name.includes(q);
+            })
+            .map(s => (
+              <ActionCard key={s.id} stock={s} strategyMode={strategy} onSelect={() => { setSelectedStock(s); setStockAiReport(null); }} />
+            ))}
+
+          {activeView === 'full' && marketSearch.trim() && processedData.fullList.filter(s => {
+            const q = marketSearch.trim().toLowerCase();
+            const code = (s.stock_code || '').replace('.TW', '').toLowerCase();
+            const name = (s.stock_name || '').toLowerCase();
+            return code.includes(q) || name.includes(q);
+          }).length === 0 && (
+            <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-slate-100">
+              <p className="serif-text text-xl text-slate-300 italic mb-2">市場清單裡找不到「{marketSearch.trim()}」</p>
+              <p className="text-[10px] font-bold text-slate-400 leading-relaxed">系統每天只分析有訊號/法人動向的股票（約 200 檔），<br/>冷門股可能今天沒被掃到。可改用 LINE 傳代碼查詢。</p>
+            </div>
+          )}
 
           {activeView === 'ai' && processedData.aiList.length === 0 && !state.loading && (
             <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border border-slate-100">
