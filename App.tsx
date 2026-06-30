@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { DashboardState, DailyAnalysis } from './types';
-import { fetchDailyAnalysis, fetchPortfolio, supabase, signOut, addToPortfolio, removeFromPortfolio, updatePortfolio, fetchHoldingAdvice, searchStockAcrossHistory, fetchLatestAiReport } from './services/supabase';
+import { fetchDailyAnalysis, fetchPortfolio, supabase, signOut, addToPortfolio, removeFromPortfolio, updatePortfolio, fetchHoldingAdvice, fetchRealtimeQuotes, searchStockAcrossHistory, fetchLatestAiReport } from './services/supabase';
 import { exportToExcel, exportToPdf } from './utils/exportReport';
 import { ActionCard } from './components/StockCard';
 import { SystemStatus } from './components/SystemStatus';
@@ -48,6 +48,7 @@ const App: React.FC = () => {
   const [stockAiReport, setStockAiReport] = useState<{text: string, links: {title: string, uri: string}[]} | null>(null);
   const [isStockAiLoading, setIsStockAiLoading] = useState(false);
   const [holdingAdvice, setHoldingAdvice] = useState<Record<string, any>>({}); // GBrain 持股建議（純代碼→建議）
+  const [realtimeQuotes, setRealtimeQuotes] = useState<Record<string, number>>({}); // 持股即時價（純代碼→現價）
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -62,6 +63,8 @@ const App: React.FC = () => {
       const [marketData, portfolioData, adviceMap] = await Promise.all([fetchDailyAnalysis(), fetchPortfolio(), fetchHoldingAdvice()]);
       setHoldingAdvice(adviceMap);
       setState({ data: marketData, portfolio: portfolioData, loading: false, error: null, lastUpdated: new Date() });
+      // 持股即時價 fallback（讓未分析/盤中的持股也有現價、損益不開天窗）
+      fetchRealtimeQuotes(portfolioData.map(p => p.stock_code)).then(setRealtimeQuotes);
     } catch (err: any) {
       setState(prev => ({ ...prev, loading: false, error: err.message }));
     }
@@ -136,7 +139,9 @@ const App: React.FC = () => {
 
     const portfolioList = state.portfolio.map(p => {
       const mkt = latestSnapshotMap.get(normCode(p.stock_code));
-      const currentPrice = mkt ? Number(mkt.close_price) : Number(p.buy_price);
+      // 現價優先序：即時報價 > 當日分析收盤 > 買入價（讓未分析的持股也有現價）
+      const rt = realtimeQuotes[normCode(p.stock_code)];
+      const currentPrice = (rt && rt > 0) ? rt : (mkt ? Number(mkt.close_price) : Number(p.buy_price));
       const advice = holdingAdvice[normCode(p.stock_code)] || null; // GBrain 持股建議
       const breakeven = Number(p.buy_price) * 1.00585; // 損益平衡＝成交價＋來回手續費(0.1425%×2)＋證交稅(0.3%)
       return {
@@ -203,7 +208,7 @@ const App: React.FC = () => {
       isCurrent: latestDate === format(new Date(), 'yyyy-MM-dd'),
       searchResults: searchQuery ? latestStocks.filter(s => s.stock_name.includes(searchQuery) || s.stock_code.includes(searchQuery)).slice(0, 5) : []
     };
-  }, [state.data, state.portfolio, strategy, searchQuery, holdingAdvice]);
+  }, [state.data, state.portfolio, strategy, searchQuery, holdingAdvice, realtimeQuotes]);
 
   const handleRunStockAi = async (stock: DailyAnalysis) => {
     setIsStockAiLoading(true);

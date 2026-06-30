@@ -180,6 +180,20 @@ export const fetchHoldingAdvice = async (): Promise<Record<string, { action_labe
   }
 };
 
+// 即時報價 fallback（帳冊用）：給代碼陣列 → {純代碼: 現價}。零 token、零 GitHub。
+export const fetchRealtimeQuotes = async (codes: string[]): Promise<Record<string, number>> => {
+  const clean = [...new Set(codes.map(c => String(c).replace(/\.(TW|TWO)$/i, '').trim()).filter(c => /^\d{4,6}$/.test(c)))];
+  if (!clean.length) return {};
+  try {
+    const { data, error } = await supabase.functions.invoke('quote', { body: { codes: clean } });
+    if (error) throw error;
+    return (data || {}) as Record<string, number>;
+  } catch (err) {
+    console.error('[Supabase] fetchRealtimeQuotes Error:', err);
+    return {};
+  }
+};
+
 // 編輯持股（改買價/張數）
 export const updatePortfolio = async (stockCode: string, buyPrice: number, quantity: number): Promise<void> => {
   const { data: { user } } = await supabase.auth.getUser();
