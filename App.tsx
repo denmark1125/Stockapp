@@ -593,32 +593,50 @@ const App: React.FC = () => {
                 </div>
               ))}
 
-              {/* 搜尋不到也能手動登錄（如集盛這類系統未分析的股票）*/}
-              {searchQuery.trim() && (
-                <div
-                  onClick={() => {
-                    const q = searchQuery.trim();
-                    const stub = {
-                      id: 'manual-' + Date.now(),
-                      stock_code: q, stock_name: q,
-                      close_price: 0, analysis_date: 'N/A', trade_signal: 'HOLD',
-                      ai_score: 0, score_short: 0, score_long: 0,
-                      roe: null, revenue_yoy: null, pe_ratio: null, vol_ratio: 1, volatility: 0,
-                    } as unknown as DailyAnalysis;
-                    setSelectedStock(stub);
-                    setIsManualAdding(false);
-                    setManualSearchResults([]);
-                    setSearchQuery('');
-                  }}
-                  className="flex items-center justify-between p-5 bg-[#1A1A1A] text-white rounded-2xl cursor-pointer transition-all hover:opacity-90"
-                >
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 block tracking-widest mb-0.5">找不到？直接手動登錄</span>
-                    <span className="text-lg font-bold">✏️ 新增「{searchQuery.trim()}」</span>
+              {/* 搜尋不到也能手動登錄（如集盛這類系統未分析的股票）
+                  ⚠️ 防呆：只接受「數字代碼」(如 1455)。打名字會擋下來，避免把名字當代碼存→系統永遠分析不到。*/}
+              {searchQuery.trim() && (() => {
+                const q = searchQuery.trim();
+                const digits = q.replace(/\.(TW|TWO)$/i, '').trim();   // 容許輸入 1455 或 1455.TW
+                const isValidCode = /^\d{4,6}$/.test(digits);
+                if (!isValidCode) {
+                  // 打的是名字/非代碼 → 不給登錄，明確提示要打代碼
+                  return (
+                    <div className="p-5 bg-rose-50 border border-rose-200 rounded-2xl">
+                      <span className="text-sm font-bold text-rose-600 block mb-1">⚠️ 請輸入「股票代碼」，不是名稱</span>
+                      <p className="text-[11px] text-rose-500 leading-relaxed">
+                        你打的是「{q}」。請改打<span className="font-bold">數字代碼</span>（例：集盛＝<span className="font-bold">1455</span>、台積電＝<span className="font-bold">2330</span>）。<br/>
+                        系統要靠代碼才能分析、抓現價；打名字會變成「資料不足」。
+                      </p>
+                    </div>
+                  );
+                }
+                const code = `${digits}.TW`;
+                return (
+                  <div
+                    onClick={() => {
+                      const stub = {
+                        id: 'manual-' + Date.now(),
+                        stock_code: code, stock_name: code,
+                        close_price: 0, analysis_date: 'N/A', trade_signal: 'HOLD',
+                        ai_score: 0, score_short: 0, score_long: 0,
+                        roe: null, revenue_yoy: null, pe_ratio: null, vol_ratio: 1, volatility: 0,
+                      } as unknown as DailyAnalysis;
+                      setSelectedStock(stub);
+                      setIsManualAdding(false);
+                      setManualSearchResults([]);
+                      setSearchQuery('');
+                    }}
+                    className="flex items-center justify-between p-5 bg-[#1A1A1A] text-white rounded-2xl cursor-pointer transition-all hover:opacity-90"
+                  >
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 block tracking-widest mb-0.5">找不到？以代碼手動登錄</span>
+                      <span className="text-lg font-bold">✏️ 新增代碼「{digits}」</span>
+                    </div>
+                    <div className="bg-white/15 p-2 rounded-xl"><ArrowUpRight size={18} /></div>
                   </div>
-                  <div className="bg-white/15 p-2 rounded-xl"><ArrowUpRight size={18} /></div>
-                </div>
-              )}
+                );
+              })()}
             </div>
             <p className="text-[10px] text-slate-400 mt-4 text-center leading-relaxed">輸入股票代碼（如 <span className="font-bold">1455</span>）系統較能抓到現價；找不到時可手動登錄追蹤</p>
           </div>
