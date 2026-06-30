@@ -93,18 +93,21 @@ const App: React.FC = () => {
     const marketBrief = latestData.find(s => s.stock_code === 'MARKET_BRIEF') || null;
     const latestStocks = latestData.filter(s => s.stock_code !== 'MARKET_BRIEF' && s.stock_code !== 'MARKET_STATE' && s.stock_code !== 'SIGNAL_STATS');
 
-    // 📊 訊號歷史命中率（回測寫進 SIGNAL_STATS 列的 ai_comment，JSON）→ 卡片「同類訊號過去命中 X 成」
-    const signalStats: Record<string, { wr: number; n: number; avg?: number }> = (() => {
+    // 📊 訊號歷史命中率（回測寫進 SIGNAL_STATS 列的 ai_comment，JSON）→ 卡片「同類訊號近半年命中 X 成」
+    //    量法＝碰TP1先於停損；含近月/前月趨勢；_gbrain＝GBrain 高機會自驗命中率趨勢（真正的進步記分板）
+    type WinStat = { wr: number; n: number; wr_recent?: number | null; n_recent?: number; wr_prev?: number | null; n_prev?: number };
+    const { signalStats, gbrainTrend } = ((): { signalStats: Record<string, WinStat>; gbrainTrend: WinStat | null } => {
       const row = state.data.find(s => s.stock_code === 'SIGNAL_STATS');
-      if (!row?.ai_comment) return {};
+      if (!row?.ai_comment) return { signalStats: {}, gbrainTrend: null };
       try {
         const parsed = JSON.parse(row.ai_comment as string);
-        const out: Record<string, { wr: number; n: number; avg?: number }> = {};
+        const out: Record<string, WinStat> = {};
         Object.entries(parsed).forEach(([k, v]: [string, any]) => {
-          if (k !== '_meta' && v && typeof v.wr === 'number') out[k.toUpperCase()] = v;
+          if (!k.startsWith('_') && v && typeof v.wr === 'number') out[k.toUpperCase()] = v;
         });
-        return out;
-      } catch { return {}; }
+        const gb = parsed._gbrain && typeof parsed._gbrain.wr === 'number' ? parsed._gbrain : null;
+        return { signalStats: out, gbrainTrend: gb };
+      } catch { return { signalStats: {}, gbrainTrend: null }; }
     })();
 
     // 取得最新大盤狀態
@@ -215,6 +218,7 @@ const App: React.FC = () => {
       marketDayCaution,
       marketCautionMsg,
       signalStats,
+      gbrainTrend,
       eliteList,
       aiList,
       fullList: baseList,
@@ -607,6 +611,37 @@ const App: React.FC = () => {
           <button onClick={() => setStrategy('short')} className={`px-8 py-3 rounded-xl text-[11px] font-bold transition-all ${strategy === 'short' ? 'bg-[#E8973A] text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>當沖雷達</button>
           <button onClick={() => setStrategy('long')} className={`px-8 py-3 rounded-xl text-[11px] font-bold transition-all ${strategy === 'long' ? 'bg-[#1A1A1A] text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>波段佈局</button>
         </div>
+
+        {/* 🧠 GBrain 體檢：高機會預測「自驗命中率」近月 vs 前月趨勢 → 看得出系統有沒有越來越聰明 */}
+        {activeView !== 'portfolio' && processedData.gbrainTrend && (() => {
+          const g = processedData.gbrainTrend;
+          const hasTrend = typeof g.wr_recent === 'number' && typeof g.wr_prev === 'number';
+          const up = hasTrend && (g.wr_recent as number) > (g.wr_prev as number);   // 進步＝紅(台灣慣例好＝紅)
+          const down = hasTrend && (g.wr_recent as number) < (g.wr_prev as number);
+          const arrow = up ? '↗' : down ? '↘' : '→';
+          const col = up ? '#C83232' : down ? '#10b981' : '#8B8270';
+          return (
+            <div className="mb-8 -mt-4 flex items-center gap-3 px-4 py-3 bg-[#FBF6EC] border border-[#E8973A]/30 rounded-2xl">
+              <span className="text-[16px]">🧠</span>
+              <div className="min-w-0">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-[11px] font-black text-[#1A1A1A] tracking-wide">GBrain 體檢 · 高機會命中率</span>
+                  {hasTrend ? (
+                    <span className="text-[12px] font-bold" style={{ fontFamily: 'monospace', color: col }}>
+                      前月 {g.wr_prev}% {arrow} 近月 {g.wr_recent}%
+                    </span>
+                  ) : (
+                    <span className="text-[12px] font-bold" style={{ fontFamily: 'monospace', color: '#8B8270' }}>累計 {g.wr}%（趨勢待累積）</span>
+                  )}
+                  <span className="text-[10px] text-[#B8A882]" style={{ fontFamily: 'monospace' }}>· 累計 {g.n} 次驗證</span>
+                </div>
+                <p className="text-[9px] text-[#8B7E68] mt-0.5 leading-tight">
+                  GBrain 自己標的「🔥 高機會」事後對帳命中率。{up ? '近月在進步 📈' : down ? '近月退步，演算法會自動調權修正' : '持平累積中'}。非投資建議。
+                </p>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* 💼 帳冊統計（像三竹）：總損益大卡 ＋ 持股配置圓餅 */}
         {activeView === 'portfolio' && processedData.portfolioList.length > 0 && (() => {

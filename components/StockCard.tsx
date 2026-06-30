@@ -6,7 +6,7 @@ interface ActionCardProps {
   stock: DailyAnalysis;
   onSelect: () => void;
   strategyMode: 'short' | 'long';
-  signalStats?: Record<string, { wr: number; n: number; avg?: number }>; // 訊號歷史命中率
+  signalStats?: Record<string, { wr: number; n: number; wr_recent?: number | null; wr_prev?: number | null }>; // 訊號歷史命中率
 }
 
 const resolveSignal = (signal: string, score: number, isHolding: boolean): string => {
@@ -74,7 +74,12 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
     const histKey = (stock.trade_signal || '').toUpperCase();
     const hist = signalStats?.[histKey];
     if (isBuySignal && hist && hist.n >= 30) {
-      reasons.push(`同類訊號近半年命中${(hist.wr / 10).toFixed(1)}成(${hist.n}次)`);
+      // 命中＝照訊號做、先碰目標(TP1)而非先碰停損的比例。附近月趨勢箭頭
+      let arrow = '';
+      if (typeof hist.wr_recent === 'number' && typeof hist.wr_prev === 'number') {
+        arrow = hist.wr_recent > hist.wr_prev ? '↗' : hist.wr_recent < hist.wr_prev ? '↘' : '→';
+      }
+      reasons.push(`照訊號做命中${(hist.wr / 10).toFixed(1)}成${arrow}(${hist.n}次)`);
     }
 
     if (sig === 'SELL_STOP') return { tag: '結論', txt: '已破停損 · 建議出場', accent: '#C83232', bg: '#FBF1EF', fg: '#C83232', reasons: [`現價${stock.close_price}`, stock.trade_stop ? `跌破停損${stock.trade_stop}` : ''].filter(Boolean) };
