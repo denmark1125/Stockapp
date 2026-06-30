@@ -51,16 +51,30 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
 
   // 🟢 白話結論：一眼看懂「該買 / 等回檔 / 觀望 / 避開」（給看不懂英文訊號的人）
   // 風格跟卡片一致：直角 · 左側細色條 · 平塗淡底 · 無外框（雜誌編輯結論感）
+  // ⚠️ 重點：每個結論後面一定要接「它憑什麼這樣講」的真實數字（技術分/量能/離買點多遠），
+  //         讓人看得出是算出來的、不是亂生成。沒有依據就不下結論。
   const verdict = (() => {
     if (stock.is_holding_item) return null; // 持股看 GBrain 建議，不重複
     const sig = (stock.trade_signal || '').toUpperCase();
-    if (sig === 'SELL_STOP') return { tag: '結論', txt: '已破停損 · 建議出場', accent: '#C83232', bg: '#FBF1EF', fg: '#C83232' };
-    if (sig === 'AVOID') return { tag: '結論', txt: '避開 · 現在別碰', accent: '#B5AE9E', bg: '#F2EFE7', fg: '#8B8270' };
-    if (isBuySignal) {
-      if (entryFeasibility === 'chasing') return { tag: '結論', txt: '好股但漲多了 · 等回檔再買', accent: '#C87832', bg: '#FBF4E9', fg: '#A8702A' };
-      return { tag: '可買', txt: '可考慮買進', accent: '#C83232', bg: '#FBF1EF', fg: '#C83232' };
+
+    // 收集「這檔此刻的客觀事實」當作結論依據
+    const reasons: string[] = [];
+    if (score > 0) reasons.push(`技術${Math.round(score)}分`);
+    if (typeof stock.vol_ratio === 'number' && stock.vol_ratio > 0) {
+      reasons.push(stock.vol_ratio >= 1.5 ? `量增${stock.vol_ratio.toFixed(1)}倍` : `量能${stock.vol_ratio.toFixed(1)}倍`);
     }
-    return { tag: '結論', txt: '觀望 · 先別動', accent: '#B5AE9E', bg: '#F2EFE7', fg: '#8B8270' };
+    if (isBuySignal && stock.trade_entry) {
+      const prem = (stock.close_price / stock.trade_entry - 1) * 100;
+      reasons.push(prem > 3 ? `已比買點高${prem.toFixed(0)}%` : `現價貼近買點(${prem >= 0 ? '+' : ''}${prem.toFixed(1)}%)`);
+    }
+
+    if (sig === 'SELL_STOP') return { tag: '結論', txt: '已破停損 · 建議出場', accent: '#C83232', bg: '#FBF1EF', fg: '#C83232', reasons: [`現價${stock.close_price}`, stock.trade_stop ? `跌破停損${stock.trade_stop}` : ''].filter(Boolean) };
+    if (sig === 'AVOID') return { tag: '結論', txt: '避開 · 現在別碰', accent: '#B5AE9E', bg: '#F2EFE7', fg: '#8B8270', reasons: reasons.length ? reasons : ['系統評估條件不足'] };
+    if (isBuySignal) {
+      if (entryFeasibility === 'chasing') return { tag: '結論', txt: '好股但漲多了 · 等回檔再買', accent: '#C87832', bg: '#FBF4E9', fg: '#A8702A', reasons };
+      return { tag: '可買', txt: '可考慮買進', accent: '#C83232', bg: '#FBF1EF', fg: '#C83232', reasons };
+    }
+    return { tag: '結論', txt: '觀望 · 先別動', accent: '#B5AE9E', bg: '#F2EFE7', fg: '#8B8270', reasons: reasons.length ? reasons : ['量能未放大'] };
   })();
 
   return (
@@ -171,13 +185,25 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
           </>
         )}
 
-        {/* ── 🟢 白話結論（一眼看懂該不該買）── */}
+        {/* ── 🟢 白話結論 + 它的數字依據（看得出是算的，不是亂生成）── */}
         {verdict && (
           <div className="mb-3 flex items-stretch" style={{ backgroundColor: verdict.bg }}>
             <div className="w-[3px] shrink-0" style={{ backgroundColor: verdict.accent }} />
-            <div className="flex items-baseline gap-2 px-3.5 py-2.5">
-              <span style={{ fontFamily: 'monospace', letterSpacing: '0.18em', color: verdict.accent }} className="text-[8px] font-bold uppercase">{verdict.tag}</span>
-              <span style={{ fontFamily: "'Georgia', 'Noto Serif TC', serif", color: verdict.fg }} className="text-[14px] font-bold leading-tight">{verdict.txt}</span>
+            <div className="px-3.5 py-2.5 min-w-0">
+              <div className="flex items-baseline gap-2">
+                <span style={{ fontFamily: 'monospace', letterSpacing: '0.18em', color: verdict.accent }} className="text-[8px] font-bold uppercase">{verdict.tag}</span>
+                <span style={{ fontFamily: "'Georgia', 'Noto Serif TC', serif", color: verdict.fg }} className="text-[14px] font-bold leading-tight">{verdict.txt}</span>
+              </div>
+              {verdict.reasons.length > 0 && (
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-1">
+                  <span style={{ fontFamily: 'monospace', color: verdict.accent }} className="text-[8px] opacity-70">依據</span>
+                  {verdict.reasons.map((r, i) => (
+                    <span key={i} style={{ fontFamily: 'monospace', color: verdict.fg }} className="text-[9px] opacity-80">
+                      {i > 0 && <span className="opacity-40 mr-1.5">·</span>}{r}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
