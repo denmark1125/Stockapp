@@ -66,12 +66,16 @@ const App: React.FC = () => {
 
   useEffect(() => { if (session) loadData(); }, [session, loadData]);
 
+  // 代碼正規化：去掉 .TW/.TWO 後綴，讓「1455」與「1455.TW」能對得上（持股合併用）
+  const normCode = (c?: string) => (c || '').replace(/\.(TW|TWO)$/i, '').trim().toUpperCase();
+
   const processedData = useMemo(() => {
     const latestSnapshotMap = new Map<string, DailyAnalysis>();
     const scoreHistoryMap = new Map<string, number[]>();
 
     state.data.forEach(item => {
-      if (!latestSnapshotMap.has(item.stock_code)) latestSnapshotMap.set(item.stock_code, item);
+      const nk = normCode(item.stock_code);
+      if (!latestSnapshotMap.has(nk)) latestSnapshotMap.set(nk, item);
       if (!scoreHistoryMap.has(item.stock_code)) scoreHistoryMap.set(item.stock_code, []);
       const scores = scoreHistoryMap.get(item.stock_code);
       if (scores && scores.length < 5) scores.push(strategy === 'short' ? Number(item.score_short || 0) : Number(item.score_long || 0));
@@ -116,7 +120,7 @@ const App: React.FC = () => {
     }).slice(0, 12);
 
     const portfolioList = state.portfolio.map(p => {
-      const mkt = latestSnapshotMap.get(p.stock_code);
+      const mkt = latestSnapshotMap.get(normCode(p.stock_code));
       const currentPrice = mkt ? Number(mkt.close_price) : Number(p.buy_price);
       return {
         ...(mkt || {
