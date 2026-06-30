@@ -146,12 +146,12 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
           )}
           {/* 🐕 GBrain 持股建議（每日更新，讓你買完不是沒人理）*/}
           {stock.gbrain_action && (
-            <div className="mb-3 px-3 py-2.5 bg-[#1A1A1A] rounded-2xl">
+            <div className="mb-3 px-3 py-2.5 bg-[#FBF6EC] border border-[#E8973A]/40 rounded-2xl">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-[8px] font-black text-[#E8973A] uppercase tracking-widest">🐕 GBrain 今日建議</span>
+                <span className="text-[8px] font-black text-[#C87832] uppercase tracking-widest">🐕 GBrain 今日建議</span>
               </div>
-              <p className="text-[12px] font-bold text-white leading-snug">{stock.gbrain_action}</p>
-              {stock.gbrain_reason && <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">{stock.gbrain_reason}</p>}
+              <p className="text-[12px] font-bold text-[#1A1A1A] leading-snug">{stock.gbrain_action}</p>
+              {stock.gbrain_reason && <p className="text-[10px] text-[#8B7E68] mt-1 leading-relaxed">{stock.gbrain_reason}</p>}
             </div>
           )}
           </>

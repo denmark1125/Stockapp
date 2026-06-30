@@ -108,7 +108,19 @@ const App: React.FC = () => {
       return currentScore;
     };
 
-    let baseList = [...latestStocks].sort((a, b) => getEliteScore(b) - getEliteScore(a));
+    // 追高判定（與卡片一致）：買進訊號且現價比建議買點高 >3% → 追高，排序時往後放
+    const isChasing = (s: DailyAnalysis) => {
+      const buy = ['STRONG_BUY', 'SWING_BUY', 'DAYTRADE_BUY'].includes((s.trade_signal || '').toUpperCase());
+      const entry = Number(s.trade_entry) || 0;
+      if (!buy || entry <= 0) return false;
+      return (Number(s.close_price) / entry) > 1.03;
+    };
+    // 排序：① 可進場優先於追高（能買的排前面）② 再依分數高低
+    let baseList = [...latestStocks].sort((a, b) => {
+      const ca = isChasing(a) ? 1 : 0, cb = isChasing(b) ? 1 : 0;
+      if (ca !== cb) return ca - cb;
+      return getEliteScore(b) - getEliteScore(a);
+    });
     // 只保留真正精銳的標的：分數 ≥ 70 且 trade_signal 不是 AVOID
     const eliteList = baseList.filter(s => {
       const score = strategy === 'short' ? (Number(s.score_short) || 0) : (Number(s.score_long) || 0);
@@ -134,6 +146,8 @@ const App: React.FC = () => {
           ai_score: 0, score_short: 0, score_long: 0, roe: null, revenue_yoy: null, pe_ratio: null,
           vol_ratio: 1, volatility: 0
         }),
+        // ⚠️ 用帳冊自己的代碼（不是 daily_analysis 的 .TW 版），編輯/移除才對得上資料庫那筆
+        stock_code: p.stock_code,
         buy_price: Number(p.buy_price),
         close_price: currentPrice,
         quantity: p.quantity,
@@ -581,24 +595,31 @@ const App: React.FC = () => {
           const fmt = (n: number) => Math.round(n).toLocaleString();
           return (
             <div className="mb-8 grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2 bg-[#1A1A1A] text-white rounded-3xl p-6 lg:p-8">
+              <div className="lg:col-span-2 bg-[#F8F4EE] border border-[#DDD5C4] rounded-3xl p-6 lg:p-8">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">總資產損益</span>
-                  <span className="text-[10px] text-slate-500 font-bold">{sm.count} 檔持股</span>
+                  <span className="text-[11px] font-bold text-[#B8A882] uppercase tracking-widest">總資產損益</span>
+                  <span className="text-[10px] text-[#B8A882] font-bold">{sm.count} 檔持股</span>
                 </div>
-                <div className="text-4xl lg:text-5xl font-bold leading-none" style={{ fontFamily: 'monospace', color: plColor }}>
-                  {up ? '+' : '−'}{fmt(Math.abs(sm.totalPL))}<span className="text-lg ml-1">元</span>
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-4xl lg:text-5xl font-bold leading-none" style={{ fontFamily: 'monospace', color: plColor }}>
+                    {up ? '+' : '−'}{fmt(Math.abs(sm.totalPL))}
+                  </span>
+                  <span className="text-base font-bold text-[#5A4E3C]">元</span>
+                  <span className="text-lg font-bold ml-1" style={{ color: plColor }}>{up ? '▲' : '▼'} {Math.abs(sm.totalPLPct).toFixed(2)}%</span>
                 </div>
-                <div className="mt-1 text-sm font-bold" style={{ color: plColor }}>
-                  {up ? '▲' : '▼'} {Math.abs(sm.totalPLPct).toFixed(2)}%
-                </div>
-                <div className="flex gap-8 mt-5 pt-4 border-t border-white/10">
-                  <div><p className="text-[9px] text-slate-500 font-bold uppercase mb-0.5">總成本</p><p className="text-sm font-bold" style={{ fontFamily: 'monospace' }}>{fmt(sm.totalCost)}</p></div>
-                  <div><p className="text-[9px] text-slate-500 font-bold uppercase mb-0.5">總市值</p><p className="text-sm font-bold" style={{ fontFamily: 'monospace' }}>{fmt(sm.totalValue)}</p></div>
+                <div className="grid grid-cols-2 gap-3 mt-5 pt-4 border-t border-[#DDD5C4]">
+                  <div className="bg-white/70 rounded-2xl py-2.5 px-4">
+                    <p className="text-[9px] text-[#B8A882] font-bold uppercase tracking-wider mb-0.5">總成本</p>
+                    <p className="text-base font-bold text-[#1A1A1A]" style={{ fontFamily: 'monospace' }}>{fmt(sm.totalCost)}</p>
+                  </div>
+                  <div className="bg-white/70 rounded-2xl py-2.5 px-4">
+                    <p className="text-[9px] text-[#B8A882] font-bold uppercase tracking-wider mb-0.5">總市值</p>
+                    <p className="text-base font-bold text-[#1A1A1A]" style={{ fontFamily: 'monospace' }}>{fmt(sm.totalValue)}</p>
+                  </div>
                 </div>
               </div>
-              <div className="bg-white rounded-3xl p-4 border border-slate-100">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 px-2">持股配置（市值占比）</p>
+              <div className="bg-[#F8F4EE] border border-[#DDD5C4] rounded-3xl p-4">
+                <p className="text-[11px] font-bold text-[#B8A882] uppercase tracking-widest mb-1 px-2">持股配置 · 市值占比</p>
                 <ResponsiveContainer width="100%" height={170}>
                   <PieChart>
                     <Pie data={sm.allocation} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={42} outerRadius={70} paddingAngle={2}>
