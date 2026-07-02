@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { DashboardState, DailyAnalysis } from './types';
-import { fetchDailyAnalysis, fetchPortfolio, supabase, signOut, addToPortfolio, removeFromPortfolio, updatePortfolio, fetchHoldingAdvice, fetchRealtimeQuotes, searchStockAcrossHistory, fetchLatestAiReport } from './services/supabase';
+import { fetchDailyAnalysis, fetchPortfolio, supabase, signOut, addToPortfolio, removeFromPortfolio, updatePortfolio, fetchHoldingAdvice, fetchRealtimeQuotes, searchStockAcrossHistory, fetchLatestAiReport, repairPortfolioCodes } from './services/supabase';
 import { exportToExcel, exportToPdf } from './utils/exportReport';
 import { ActionCard } from './components/StockCard';
 import { SystemStatus } from './components/SystemStatus';
@@ -60,7 +60,9 @@ const App: React.FC = () => {
     if (!session) return;
     setState(prev => ({ ...prev, loading: true }));
     try {
-      const [marketData, portfolioData, adviceMap] = await Promise.all([fetchDailyAnalysis(), fetchPortfolio(), fetchHoldingAdvice()]);
+      const [marketData, portfolioRaw, adviceMap] = await Promise.all([fetchDailyAnalysis(), fetchPortfolio(), fetchHoldingAdvice()]);
+      // 🩹 自動修復壞代碼（如舊資料把「集盛」存成代碼）→ 修好後重新抓一次帳冊
+      const portfolioData = (await repairPortfolioCodes(portfolioRaw)) ? await fetchPortfolio() : portfolioRaw;
       setHoldingAdvice(adviceMap);
       setState({ data: marketData, portfolio: portfolioData, loading: false, error: null, lastUpdated: new Date() });
       // 持股即時價 fallback（讓未分析/盤中的持股也有現價、損益不開天窗）
@@ -138,12 +140,42 @@ const App: React.FC = () => {
       if (!buy || entry <= 0) return false;
       return (Number(s.close_price) / entry) > 1.03;
     };
-    // 排序：① 可進場優先於追高（能買的排前面）② 再依分數高低
+
+    // 🏆 嚴選七盞燈（2026-07-02 回測 7371 筆驗證：亮燈越多勝率越高——0燈34.5%→4燈52.8%，近月同樣一路遞增。
+    //    其中「AI題材」是最強單一條件 56.6% vs 基準 48%）。順序照證據強度排，燈名會顯示在卡片上。
+    const PICK_CONDS: [string, (s: DailyAnalysis) => boolean][] = [
+      ['AI題材',   s => !!s.ai_theme],
+      ['高機會',   s => s.opportunity_label === '🔥 高機會'],
+      ['均線多頭', s => !!s.trend_bull],
+      ['法人同買', s => (Number(s.foreign_net) || 0) > 0 && (Number(s.trust_net) || 0) > 0],
+      ['新聞偏多', s => (Number(s.news_score) || 0) > 0],
+      ['溫和放量', s => { const v = Number(s.vol_ratio) || 0; return v >= 1.3 && v <= 3.0; }],
+      ['MACD金叉', s => !!s.macd_cross],
+    ];
+    const litMap: Record<string, string[]> = {};
+    latestStocks.forEach(s => { litMap[normCode(s.stock_code)] = PICK_CONDS.filter(([, fn]) => fn(s)).map(([n]) => n); });
+    const litCount = (s: DailyAnalysis) => (litMap[normCode(s.stock_code)] || []).length;
+
+    // 排序（全清單一致，看得懂）：① 可進場優先於追高 ② 亮燈數多的優先 ③ 再依分數
     let baseList = [...latestStocks].sort((a, b) => {
       const ca = isChasing(a) ? 1 : 0, cb = isChasing(b) ? 1 : 0;
       if (ca !== cb) return ca - cb;
+      const la = litCount(a), lb = litCount(b);
+      if (la !== lb) return lb - la;
       return getEliteScore(b) - getEliteScore(a);
     });
+
+    // 🏆 今日嚴選：可進場＋非地雷＋亮燈≥3 的買進訊號，取前 5。寧缺勿濫（不夠就少列）。
+    const isBuySig = (s: DailyAnalysis) => ['STRONG_BUY', 'SWING_BUY', 'DAYTRADE_BUY'].includes((s.trade_signal || '').toUpperCase());
+    const pickPool = latestStocks
+      .filter(s => isBuySig(s) && !isChasing(s) && !s.risk_flag && litCount(s) >= 3)
+      .sort((a, b) => {
+        const d = litCount(b) - litCount(a);
+        if (d) return d;
+        return (Number(b.opportunity_score) || Number(b.ai_score) || 0) - (Number(a.opportunity_score) || Number(a.ai_score) || 0);
+      });
+    const topPicks = pickPool.slice(0, 5);
+    const aiTopPicks = pickPool.filter(s => s.ai_theme).slice(0, 5);
     // 只保留真正精銳的標的：分數 ≥ 70 且 trade_signal 不是 AVOID
     const eliteList = baseList.filter(s => {
       const score = strategy === 'short' ? (Number(s.score_short) || 0) : (Number(s.score_long) || 0);
@@ -204,12 +236,14 @@ const App: React.FC = () => {
       .sort((a, b) => b.value - a.value);
     const portfolioSummary = { totalCost, totalValue, totalPL, totalPLPct, allocation, count: portfolioList.length };
 
-    // 🤖 AI 特區：只收 AI 題材股；排序＝① 可進場優先於追高 ② 再依高機會/AI分數
+    // 🤖 AI 特區：只收 AI 題材股；排序與全站一致＝① 可進場 ② 亮燈數 ③ 分數
     const aiList = [...latestStocks]
       .filter(s => s.ai_theme)
       .sort((a, b) => {
         const ca = isChasing(a) ? 1 : 0, cb = isChasing(b) ? 1 : 0;
         if (ca !== cb) return ca - cb;
+        const la = litCount(a), lb = litCount(b);
+        if (la !== lb) return lb - la;
         return (Number(b.opportunity_score) || Number(b.ai_score) || 0) -
                (Number(a.opportunity_score) || Number(a.ai_score) || 0);
       });
@@ -224,6 +258,9 @@ const App: React.FC = () => {
       gbrainTrend,
       eliteList,
       aiList,
+      topPicks,
+      aiTopPicks,
+      litMap,
       fullList: baseList,
       portfolioList,
       portfolioSummary,
@@ -710,6 +747,37 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* 🏆 今日嚴選：可進場＋亮燈≥3 的前 5 檔（AI 特區只嚴選 AI 股）。下面完整清單照舊保留 */}
+        {(activeView === 'elite' || activeView === 'ai') && (() => {
+          const picks = activeView === 'ai' ? processedData.aiTopPicks : processedData.topPicks;
+          return (
+            <div className="mb-12">
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-4">
+                <h3 className="text-[15px] font-black text-[#1A1A1A] tracking-wide">🏆 今日嚴選</h3>
+                <span className="text-[10px] font-bold text-slate-400">可進場＋亮燈≥3 才入選 · 歷史驗證：燈越多越會漲（0燈34%→4燈53%）</span>
+              </div>
+              {picks.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {picks.map((s, i) => (
+                    <ActionCard key={`pick-${s.id}`} stock={s} strategyMode={strategy} signalStats={processedData.signalStats}
+                      pickInfo={{ rank: i + 1, conds: processedData.litMap[(s.stock_code || '').replace(/\.(TW|TWO)$/i, '').toUpperCase()] || [] }}
+                      onSelect={() => { setSelectedStock(s); setStockAiReport(null); }} />
+                  ))}
+                </div>
+              ) : (
+                <div className="py-10 text-center bg-white rounded-[2rem] border border-slate-100">
+                  <p className="serif-text text-lg text-slate-300 italic mb-1">今日沒有「可進場＋亮燈≥3」的標的</p>
+                  <p className="text-[10px] font-bold text-slate-400">寧缺勿濫——條件不夠就先別出手，等好球再揮棒</p>
+                </div>
+              )}
+              <div className="flex items-baseline gap-3 mt-10 mb-2">
+                <h3 className="text-[13px] font-black text-slate-500 tracking-wide">完整觀察清單</h3>
+                <span className="text-[10px] font-bold text-slate-400">排序：可進場 → 亮燈數 → 分數（追高的排最後）</span>
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {activeView === 'portfolio' && (
             <div onClick={() => setIsManualAdding(!isManualAdding)} className="group relative rounded-[2.5rem] border-2 border-dashed border-slate-200 p-8 flex flex-col items-center justify-center gap-3 transition-all hover:bg-white hover:border-[#1A1A1A] cursor-pointer h-full min-h-[220px]">
@@ -726,8 +794,11 @@ const App: React.FC = () => {
               const name = (s.stock_name || '').toLowerCase();
               return code.includes(q) || name.includes(q);
             })
-            .map(s => (
-              <ActionCard key={s.id} stock={s} strategyMode={strategy} signalStats={processedData.signalStats} onSelect={() => { setSelectedStock(s); setStockAiReport(null); }} />
+            .map((s, i) => (
+              <ActionCard key={s.id} stock={s} strategyMode={strategy} signalStats={processedData.signalStats}
+                orderNo={activeView !== 'portfolio' ? i + 1 : undefined}
+                lit={processedData.litMap[(s.stock_code || '').replace(/\.(TW|TWO)$/i, '').toUpperCase()]}
+                onSelect={() => { setSelectedStock(s); setStockAiReport(null); }} />
             ))}
 
           {activeView === 'full' && marketSearch.trim() && processedData.fullList.filter(s => {

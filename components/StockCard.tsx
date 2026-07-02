@@ -7,6 +7,9 @@ interface ActionCardProps {
   onSelect: () => void;
   strategyMode: 'short' | 'long';
   signalStats?: Record<string, { wr: number; n: number; wr_recent?: number | null; wr_prev?: number | null }>; // 訊號歷史命中率
+  pickInfo?: { rank: number; conds: string[] };  // 🏆 今日嚴選：名次＋亮的燈
+  orderNo?: number;                               // 清單推薦順位（#1 #2 …讓排序看得懂）
+  lit?: string[];                                 // 亮燈清單（七盞驗證燈裡亮了哪些）
 }
 
 const resolveSignal = (signal: string, score: number, isHolding: boolean): string => {
@@ -35,7 +38,7 @@ const getSignalStyle = (rawSignal: string, score: number, isHolding: boolean, is
   }
 };
 
-export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strategyMode, signalStats }) => {
+export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strategyMode, signalStats, pickInfo, orderNo, lit }) => {
   const score = strategyMode === 'short' ? (Number(stock.score_short) || 0) : (Number(stock.score_long) || 0);
   const modeLabel = strategyMode === 'short' ? '當沖' : '波段'; // 結論依據要標清楚是哪一種策略的分數
   const isProfit = (stock.profit_loss_ratio || 0) >= 0;
@@ -68,6 +71,10 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
     if (isBuySignal && stock.trade_entry) {
       const prem = (stock.close_price / stock.trade_entry - 1) * 100;
       reasons.push(prem > 3 ? `已比買點高${prem.toFixed(0)}%` : `現價貼近買點(${prem >= 0 ? '+' : ''}${prem.toFixed(1)}%)`);
+    }
+    // 🏆 亮燈數（嚴選七盞驗證燈）——買進訊號才顯示，燈越多歷史勝率越高
+    if (isBuySignal && lit && lit.length > 0) {
+      reasons.push(`亮燈${lit.length}/7`);
     }
     // 🧪 同類訊號的歷史命中率（回測算的真實統計，n≥30 才講）→ 證明結論是統計不是生成。
     //    只掛在「買進類」結論上：命中定義＝之後漲贏門檻，對觀望/避開講命中率不通，反而自打嘴巴。
@@ -102,6 +109,17 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
         <div className="h-full transition-all duration-500" style={{ width: style.accentWidth, backgroundColor: style.accentColor }} />
       </div>
 
+      {/* 🏆 今日嚴選橫幅（金色左條，同雜誌語言）：名次＋亮了哪幾盞驗證燈 */}
+      {pickInfo && (
+        <div className="flex items-stretch" style={{ backgroundColor: '#FBF5E4' }}>
+          <div className="w-[3px] shrink-0" style={{ backgroundColor: '#C8A032' }} />
+          <div className="px-3.5 py-2 flex items-baseline gap-2 flex-wrap min-w-0">
+            <span style={{ fontFamily: 'monospace', letterSpacing: '0.15em', color: '#A8842A' }} className="text-[10px] font-black">🏆 嚴選 #{pickInfo.rank}</span>
+            <span style={{ fontFamily: 'monospace', color: '#8B7E68' }} className="text-[9px]">亮燈 {pickInfo.conds.length}/7：{pickInfo.conds.join('·')}</span>
+          </div>
+        </div>
+      )}
+
       {/* 停損警報 */}
       {isStopped && (
         <div className="bg-[#C83232] text-white px-4 py-2 flex items-center gap-2">
@@ -116,6 +134,9 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
+              {typeof orderNo === 'number' && (
+                <span style={{ fontFamily: 'monospace' }} className="text-[9px] font-black text-[#C8A032]">#{orderNo}</span>
+              )}
               <span style={{ fontFamily: 'monospace', letterSpacing: '0.12em' }} className="text-[9px] text-[#B8A882] font-bold uppercase">{stock.stock_code}</span>
               {score >= 85 && <Sparkles size={10} className="text-[#C83232]" />}
             </div>

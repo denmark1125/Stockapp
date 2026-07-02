@@ -194,6 +194,44 @@ export const fetchRealtimeQuotes = async (codes: string[]): Promise<Record<strin
   }
 };
 
+// 🩹 帳冊代碼自動修復：舊版手動登錄曾把「股票名字」存成 stock_code（如「集盛」），
+// 導致掃描/柴報/GBrain 全對不上號、一直顯示資料不足。App 每次載入自動偵測並修成正確代碼。
+export const repairPortfolioCodes = async (items: PortfolioItem[]): Promise<boolean> => {
+  const bad = items.filter(p => !/^\d{4,6}(\.(TW|TWO))?$/i.test(String(p.stock_code || '').trim()));
+  if (!bad.length) return false;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+  let fixed = false;
+  for (const p of bad) {
+    try {
+      // 用名字去歷史分析裡找正確代碼（名字完全相同才敢修，避免修錯股）
+      const name = String(p.stock_name || p.stock_code || '').trim();
+      if (!name) continue;
+      const { data } = await supabase
+        .from('daily_analysis')
+        .select('stock_code,stock_name')
+        .eq('stock_name', name)
+        .neq('stock_code', 'MARKET_STATE')
+        .order('analysis_date', { ascending: false })
+        .limit(1);
+      const good = data?.[0]?.stock_code;
+      if (!good || !/^\d{4,6}/.test(good.replace(/\.(TW|TWO)$/i, ''))) continue;
+      let { error } = await supabase.from('portfolio')
+        .update({ stock_code: good, stock_name: data![0].stock_name })
+        .eq('stock_code', p.stock_code).eq('user_id', user.id);
+      if (error) {
+        const retry = await supabase.from('portfolio').update({ stock_code: good }).eq('stock_code', p.stock_code);
+        error = retry.error;
+      }
+      if (!error) {
+        fixed = true;
+        console.log(`[Alpha Ledger 修復] 帳冊代碼「${p.stock_code}」→「${good}」`);
+      }
+    } catch { /* 單筆失敗不影響其他 */ }
+  }
+  return fixed;
+};
+
 // 編輯持股（改買價/張數）
 export const updatePortfolio = async (stockCode: string, buyPrice: number, quantity: number): Promise<void> => {
   const { data: { user } } = await supabase.auth.getUser();
