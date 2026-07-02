@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Compass, Layout, Wallet, LogOut, Search, Plus, Zap, Cpu,
-  ArrowUpRight, ChevronRight, X, AlertTriangle, FileDown, FileSpreadsheet, FileText
+  ArrowUpRight, ChevronRight, X, AlertTriangle, FileDown, FileSpreadsheet, FileText, HelpCircle
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { DashboardState, DailyAnalysis } from './types';
@@ -12,6 +12,7 @@ import { SystemStatus } from './components/SystemStatus';
 import { MarketBriefing } from './components/MarketBriefing';
 import { StockDetailModal } from './components/StockDetailModal';
 import { ShibaChat } from './components/ShibaChat';
+import { GuideModal } from './components/GuideModal';
 import { GlobalAiReportModal } from './components/GlobalAiReportModal';
 import { format } from 'date-fns';
 
@@ -41,6 +42,7 @@ const App: React.FC = () => {
   const [manualSearchResults, setManualSearchResults] = useState<DailyAnalysis[]>([]);
   const [marketSearch, setMarketSearch] = useState(''); // 市場列表快速搜尋（代碼/名稱）
   const [historyResults, setHistoryResults] = useState<DailyAnalysis[]>([]); // 今日沒掃到時的歷史庫搜尋結果（如力積電）
+  const [guideMode, setGuideMode] = useState<'onboarding' | 'manual' | null>(null); // 📖 新手教學/使用手冊
 
   const [isGlobalReportOpen, setIsGlobalReportOpen] = useState(false);
   const [globalReportType, setGlobalReportType] = useState<'daily' | 'weekly'>('daily');
@@ -75,6 +77,12 @@ const App: React.FC = () => {
   }, [session]);
 
   useEffect(() => { if (session) loadData(); }, [session, loadData]);
+
+  // 📖 新用戶首次登入 → 自動跳新手教學（可略過，之後從右上角 ? 隨時翻手冊）
+  useEffect(() => {
+    if (session && !localStorage.getItem('al_guide_seen')) setGuideMode('onboarding');
+  }, [session]);
+  const closeGuide = () => { localStorage.setItem('al_guide_seen', '1'); setGuideMode(null); };
 
   // 代碼正規化：去掉 .TW/.TWO 後綴，讓「1455」與「1455.TW」能對得上（持股合併用）
   const normCode = (c?: string) => (c || '').replace(/\.(TW|TWO)$/i, '').trim().toUpperCase();
@@ -654,6 +662,7 @@ const App: React.FC = () => {
               </div>
             )}
           </div>
+          <button onClick={() => setGuideMode('manual')} title="使用手冊" className="text-slate-400 hover:text-[#E8973A] transition-colors"><HelpCircle size={16} /></button>
           <button onClick={() => signOut()} className="text-slate-400 hover:text-[#E8973A] transition-colors"><LogOut size={16} /></button>
         </div>
       </nav>
@@ -1004,6 +1013,9 @@ const App: React.FC = () => {
       {isGlobalReportOpen && (
         <GlobalAiReportModal type={globalReportType} onClose={() => setIsGlobalReportOpen(false)} portfolioStocks={state.portfolio.map(p => p.stock_name)} />
       )}
+
+      {/* 📖 新手教學（首次登入自動跳，可略過）／使用手冊（右上角 ?） */}
+      {guideMode && <GuideModal mode={guideMode} onClose={closeGuide} />}
 
       {/* 🐕 汪汪柴犬管家：右下角浮動聊天（丟代碼查個股、問今天買什麼、問持股怎麼辦） */}
       <ShibaChat
