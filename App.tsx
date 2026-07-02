@@ -4,8 +4,8 @@ import {
   ArrowUpRight, ChevronRight, X, AlertTriangle, FileDown, FileSpreadsheet, FileText, HelpCircle
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { DashboardState, DailyAnalysis } from './types';
-import { fetchDailyAnalysis, fetchPortfolio, supabase, signOut, addToPortfolio, removeFromPortfolio, updatePortfolio, fetchHoldingAdvice, fetchRealtimeQuotes, searchStockAcrossHistory, fetchLatestAiReport, repairPortfolioCodes } from './services/supabase';
+import { DashboardState, DailyAnalysis, WatchlistItem } from './types';
+import { fetchDailyAnalysis, fetchPortfolio, supabase, signOut, addToPortfolio, removeFromPortfolio, updatePortfolio, fetchHoldingAdvice, fetchRealtimeQuotes, searchStockAcrossHistory, fetchLatestAiReport, repairPortfolioCodes, fetchWatchlist, addToWatchlist, removeFromWatchlist } from './services/supabase';
 import { exportToExcel, exportToPdf } from './utils/exportReport';
 import { ActionCard } from './components/StockCard';
 import { SystemStatus } from './components/SystemStatus';
@@ -53,6 +53,7 @@ const App: React.FC = () => {
   const [isStockAiLoading, setIsStockAiLoading] = useState(false);
   const [holdingAdvice, setHoldingAdvice] = useState<Record<string, any>>({}); // GBrain 持股建議（純代碼→建議）
   const [realtimeQuotes, setRealtimeQuotes] = useState<Record<string, number>>({}); // 持股即時價（純代碼→現價）
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]); // 願望清單（觀察中，不計損益）
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -64,10 +65,11 @@ const App: React.FC = () => {
     if (!session) return;
     setState(prev => ({ ...prev, loading: true }));
     try {
-      const [marketData, portfolioRaw, adviceMap] = await Promise.all([fetchDailyAnalysis(), fetchPortfolio(), fetchHoldingAdvice()]);
+      const [marketData, portfolioRaw, adviceMap, watchlistData] = await Promise.all([fetchDailyAnalysis(), fetchPortfolio(), fetchHoldingAdvice(), fetchWatchlist()]);
       // 🩹 自動修復壞代碼（如舊資料把「集盛」存成代碼）→ 修好後重新抓一次帳冊
       const portfolioData = (await repairPortfolioCodes(portfolioRaw)) ? await fetchPortfolio() : portfolioRaw;
       setHoldingAdvice(adviceMap);
+      setWatchlist(watchlistData);
       setState({ data: marketData, portfolio: portfolioData, loading: false, error: null, lastUpdated: new Date() });
       // 持股即時價 fallback（讓未分析/盤中的持股也有現價、損益不開天窗）
       fetchRealtimeQuotes(portfolioData.map(p => p.stock_code)).then(setRealtimeQuotes);
@@ -274,6 +276,21 @@ const App: React.FC = () => {
                (Number(a.opportunity_score) || Number(a.ai_score) || 0);
       });
 
+    // 願望清單：join watchlist 代碼與 latestStocks 取得即時分析資料
+    const watchlistDisplay = watchlist.map(w => {
+      const nc = normCode(w.stock_code);
+      const analysis = latestStocks.find(s => normCode(s.stock_code) === nc);
+      if (analysis) return { ...analysis, is_watchlist_item: true, watchlist_stock_code: w.stock_code };
+      // 沒掃到的話只顯示基本資訊
+      return {
+        id: w.id, stock_code: w.stock_code, stock_name: w.stock_name,
+        close_price: 0, ai_score: 0, score_short: 0, score_long: 0,
+        roe: null, revenue_yoy: null, pe_ratio: null, vol_ratio: 1, volatility: 0,
+        trade_signal: 'UNKNOWN', analysis_date: '', is_watchlist_item: true,
+        watchlist_stock_code: w.stock_code,
+      } as DailyAnalysis & { is_watchlist_item: boolean; watchlist_stock_code: string };
+    });
+
     return {
       marketBrief,
       marketRegime,
@@ -292,10 +309,11 @@ const App: React.FC = () => {
       portfolioSummary,
       stopLossAlerts,
       latestDate,
+      watchlistDisplay,
       isCurrent: latestDate === format(new Date(), 'yyyy-MM-dd'),
       searchResults: searchQuery ? latestStocks.filter(s => s.stock_name.includes(searchQuery) || s.stock_code.includes(searchQuery)).slice(0, 5) : []
     };
-  }, [state.data, state.portfolio, strategy, searchQuery, holdingAdvice, realtimeQuotes]);
+  }, [state.data, state.portfolio, watchlist, strategy, searchQuery, holdingAdvice, realtimeQuotes]);
 
   // 📡 盤中即時價輪詢（免費：TWSE MIS 經 quote edge function，v2 支援整批分批打）：
   // 涵蓋「今日全部分析股（雷達/AI/市場/嚴選都是它的子集）＋帳冊持股」，
@@ -431,6 +449,31 @@ const App: React.FC = () => {
       await updatePortfolio(stock.stock_code, buyPrice, quantity);
       await loadData();
       setSelectedStock(null); // 關閉彈窗，回帳冊看更新後的數字
+    } catch (e) { console.error(e); }
+  };
+
+  // 加碼（多筆買入）：計算加權均價後更新同一筆持股
+  const handleAddLot = async (stock: DailyAnalysis, newPrice: number, newQty: number) => {
+    try {
+      const oldPrice = stock.buy_price ?? 0;
+      const oldQty = stock.quantity ?? 0;
+      const totalQty = oldQty + newQty;
+      if (totalQty <= 0) return;
+      const avgPrice = Math.round(((oldPrice * oldQty) + (newPrice * newQty)) / totalQty * 100) / 100;
+      await updatePortfolio(stock.stock_code, avgPrice, totalQty);
+      await loadData();
+      setSelectedStock(null);
+    } catch (e) { console.error(e); }
+  };
+
+  // 願望清單
+  const handleToggleWatchlist = async (stock: DailyAnalysis) => {
+    try {
+      const isWatched = watchlist.some(w => normCode(w.stock_code) === normCode(stock.stock_code));
+      if (isWatched) await removeFromWatchlist(stock.stock_code);
+      else await addToWatchlist(stock);
+      const updated = await fetchWatchlist();
+      setWatchlist(updated);
     } catch (e) { console.error(e); }
   };
 
@@ -906,6 +949,53 @@ const App: React.FC = () => {
             </div>
           )}
 
+          {/* 👀 願望清單（帳冊頁下方） */}
+          {activeView === 'portfolio' && processedData.watchlistDisplay.length > 0 && (
+            <div className="col-span-full mt-6">
+              <div className="flex items-baseline gap-3 mb-4">
+                <h3 className="text-[13px] font-black text-slate-500 tracking-wide">👀 願望清單</h3>
+                <span className="text-[10px] font-bold text-slate-400">觀察中但尚未買入的股票 · 點卡片可加入帳冊</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {processedData.watchlistDisplay.map(s => (
+                  <div key={`w-${s.stock_code}`}
+                    className="bg-white border border-dashed border-[#E8D9C0] rounded-[2rem] p-5 cursor-pointer hover:border-[#E8973A]/60 hover:shadow-sm transition-all"
+                    onClick={() => { setSelectedStock(s as DailyAnalysis); setStockAiReport(null); }}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <p className="text-[11px] font-bold text-slate-400">{(s.stock_code || '').replace(/\.(TW|TWO)$/i, '')}</p>
+                        <p className="text-[15px] font-black text-[#1A1A1A] leading-tight">{s.stock_name}</p>
+                      </div>
+                      <button
+                        onClick={e => { e.stopPropagation(); handleToggleWatchlist(s as DailyAnalysis); }}
+                        className="text-[10px] font-bold text-slate-400 hover:text-rose-500 px-2 py-1 rounded-lg hover:bg-rose-50 transition-all"
+                      >移除</button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg font-bold" style={{ fontFamily: 'monospace', color: s.close_price > 0 ? '#1A1A1A' : '#ccc' }}>
+                        {s.close_price > 0 ? s.close_price : '--'}
+                      </span>
+                      {s.trade_signal && s.trade_signal !== 'UNKNOWN' && (
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md ${
+                          s.trade_signal === 'STRONG_BUY' || s.trade_signal === 'SWING_BUY' ? 'bg-red-50 text-red-600' :
+                          s.trade_signal === 'SELL_STOP' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-500'
+                        }`}>
+                          {s.trade_label || s.trade_signal}
+                        </span>
+                      )}
+                      {processedData.litMap[normCode(s.stock_code)]?.length > 0 && (
+                        <span className="text-[9px] font-bold text-[#E8973A]">
+                          亮燈 {processedData.litMap[normCode(s.stock_code)].length}/5
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {activeView === 'elite' && processedData.eliteList.length === 0 && !state.loading && (
             <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border border-slate-100">
               <p className="serif-text text-2xl text-slate-300 italic mb-2">今日市場尚未捕捉到精銳標的</p>
@@ -1001,6 +1091,9 @@ const App: React.FC = () => {
           onRunAi={() => handleRunStockAi(selectedStock)}
           onTogglePortfolio={handleTogglePortfolio}
           onUpdatePortfolio={handleUpdatePortfolio}
+          onAddLot={handleAddLot}
+          onToggleWatchlist={handleToggleWatchlist}
+          isWatchlisted={watchlist.some(w => normCode(w.stock_code) === normCode(selectedStock.stock_code))}
           aiReport={stockAiReport}
           isAiLoading={isStockAiLoading}
         />

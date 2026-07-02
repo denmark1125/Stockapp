@@ -71,6 +71,14 @@ export interface PortfolioItem {
   created_at: string;
 }
 
+export interface WatchlistItem {
+  id: string;
+  stock_code: string;
+  stock_name: string;
+  status: 'watching';
+  created_at: string;
+}
+
 export interface DashboardState {
   data: DailyAnalysis[];
   portfolio: PortfolioItem[];

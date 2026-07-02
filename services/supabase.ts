@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { DailyAnalysis, PortfolioItem } from '../types';
+import { DailyAnalysis, PortfolioItem, WatchlistItem } from '../types';
 
 const getSupabaseConfig = () => {
   const url = (window as any).process?.env?.NEXT_PUBLIC_SUPABASE_URL || 'https://zfkwzbupyvrrthuowchc.supabase.co';
@@ -152,9 +152,68 @@ export const removeFromPortfolio = async (stockCode: string): Promise<void> => {
     .from('portfolio')
     .delete()
     .eq('stock_code', stockCode)
+    .eq('status', 'holding')
     .eq('user_id', user.id);
   if (error) {
-    const retry = await supabase.from('portfolio').delete().eq('stock_code', stockCode);
+    const retry = await supabase.from('portfolio').delete().eq('stock_code', stockCode).eq('status', 'holding');
+    error = retry.error;
+  }
+  if (error) throw error;
+};
+
+// ── 願望清單（觀察中，不計損益）──────────────────────────────────────
+export const fetchWatchlist = async (): Promise<WatchlistItem[]> => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    let { data, error } = await supabase
+      .from('portfolio')
+      .select('*')
+      .eq('status', 'watching')
+      .eq('user_id', user.id);
+    if (error) {
+      const fallback = await supabase.from('portfolio').select('*').eq('status', 'watching');
+      data = fallback.data; error = fallback.error;
+    }
+    if (error) throw error;
+    return (data || []) as WatchlistItem[];
+  } catch (err) {
+    console.error('[Supabase] fetchWatchlist Error:', err);
+    return [];
+  }
+};
+
+export const addToWatchlist = async (stock: DailyAnalysis): Promise<void> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('請先登入');
+  const row: Record<string, unknown> = {
+    stock_code: stock.stock_code,
+    stock_name: stock.stock_name,
+    buy_price: 0,
+    quantity: 0,
+    status: 'watching',
+    user_id: user.id,
+  };
+  let { error } = await supabase.from('portfolio').insert([row]);
+  if (error) {
+    delete row.user_id;
+    const retry = await supabase.from('portfolio').insert([row]);
+    error = retry.error;
+  }
+  if (error) throw error;
+};
+
+export const removeFromWatchlist = async (stockCode: string): Promise<void> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('請先登入');
+  let { error } = await supabase
+    .from('portfolio')
+    .delete()
+    .eq('stock_code', stockCode)
+    .eq('status', 'watching')
+    .eq('user_id', user.id);
+  if (error) {
+    const retry = await supabase.from('portfolio').delete().eq('stock_code', stockCode).eq('status', 'watching');
     error = retry.error;
   }
   if (error) throw error;

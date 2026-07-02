@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   X, History, Loader2,
   TrendingUp, TrendingDown, PlusCircle, MinusCircle,
-  Newspaper, HelpCircle, Tag, Pencil
+  Newspaper, HelpCircle, Tag, Pencil, Bookmark, BookmarkCheck, PlusSquare
 } from 'lucide-react';
 import { DailyAnalysis } from '../types';
 import { fetchStockHistory } from '../services/supabase';
@@ -17,6 +17,9 @@ interface StockDetailModalProps {
   onRunAi?: () => void;
   onTogglePortfolio: (stock: DailyAnalysis, buyPrice?: number, quantity?: number) => Promise<void>;
   onUpdatePortfolio?: (stock: DailyAnalysis, buyPrice: number, quantity: number) => Promise<void>;
+  onAddLot?: (stock: DailyAnalysis, newPrice: number, newQty: number) => Promise<void>;
+  onToggleWatchlist?: (stock: DailyAnalysis) => Promise<void>;
+  isWatchlisted?: boolean;
   aiReport?: { text: string; links: { title: string; uri: string }[] } | null;
   isAiLoading?: boolean;
 }
@@ -101,16 +104,19 @@ const NewsSentimentBlock: React.FC<{ sentiment?: string; summary?: string; score
 };
 
 export const StockDetailModal: React.FC<StockDetailModalProps> = ({
-  stock, onClose, onRunAi, onTogglePortfolio, onUpdatePortfolio, aiReport, isAiLoading
+  stock, onClose, onRunAi, onTogglePortfolio, onUpdatePortfolio, onAddLot, onToggleWatchlist, isWatchlisted, aiReport, isAiLoading
 }) => {
   const [history, setHistory] = useState<DailyAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showLotForm, setShowLotForm] = useState(false); // 加碼表單
   const [inputPrice, setInputPrice] = useState(stock.close_price.toString());
   const [inputQuantity, setInputQuantity] = useState('1');
   const [editPrice, setEditPrice] = useState(stock.buy_price != null ? String(stock.buy_price) : '');
   const [editQty, setEditQty] = useState(stock.quantity != null ? String(stock.quantity) : '');
+  const [lotPrice, setLotPrice] = useState(stock.close_price.toString()); // 加碼買入價
+  const [lotQty, setLotQty] = useState('1'); // 加碼數量
 
   const handleEdit = async () => {
     if (!onUpdatePortfolio) return;
@@ -243,6 +249,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
           </div>
 
           <div className="mt-6 space-y-3">
+            {/* 新增持股：輸入買入價/數量 */}
             {showAddForm && !stock.is_holding_item && (
               <div className="bg-white/5 p-5 rounded-3xl border border-white/5 space-y-4 animate-in slide-in-from-bottom-4 duration-300">
                 <div className="grid grid-cols-2 gap-4">
@@ -251,14 +258,52 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                     <input type="number" value={inputPrice} onChange={e => setInputPrice(e.target.value)} className="w-full bg-black border border-white/10 rounded-xl px-4 py-2 text-sm font-bold mono-text text-white outline-none" />
                   </div>
                   <div>
-                    <label className="text-[9px] font-bold text-slate-500 block mb-1">數量</label>
+                    <label className="text-[9px] font-bold text-slate-500 block mb-1">數量（股）</label>
                     <input type="number" value={inputQuantity} onChange={e => setInputQuantity(e.target.value)} className="w-full bg-black border border-white/10 rounded-xl px-4 py-2 text-sm font-bold mono-text text-white outline-none" />
                   </div>
                 </div>
               </div>
             )}
+
+            {/* 加碼表單 */}
+            {showLotForm && stock.is_holding_item && onAddLot && (
+              <div className="bg-white/5 p-4 rounded-3xl border border-[#E8973A]/30 space-y-3 animate-in slide-in-from-bottom-4 duration-300">
+                <div className="flex items-center gap-1.5">
+                  <PlusSquare size={12} className="text-[#E8973A]" />
+                  <span className="text-[10px] font-black text-[#E8973A] uppercase tracking-widest">加碼買進</span>
+                </div>
+                <p className="text-[9px] text-slate-400">原持倉：{stock.quantity} 股 @ {stock.buy_price} 元
+                  {(() => {
+                    const lp = parseFloat(lotPrice), lq = parseFloat(lotQty);
+                    if (!isNaN(lp) && !isNaN(lq) && lq > 0 && (stock.quantity ?? 0) > 0) {
+                      const newAvg = ((stock.buy_price ?? 0) * (stock.quantity ?? 0) + lp * lq) / ((stock.quantity ?? 0) + lq);
+                      return ` → 加碼後均價 ${newAvg.toFixed(2)} 元 × ${(stock.quantity ?? 0) + lq} 股`;
+                    }
+                    return '';
+                  })()}
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-500 block mb-1">加碼買入價</label>
+                    <input type="number" inputMode="decimal" value={lotPrice} onChange={e => setLotPrice(e.target.value)} className="w-full bg-black border border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold mono-text text-white outline-none focus:border-[#E8973A]/60" />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-500 block mb-1">加碼數量（股）</label>
+                    <input type="number" inputMode="numeric" value={lotQty} onChange={e => setLotQty(e.target.value)} className="w-full bg-black border border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold mono-text text-white outline-none focus:border-[#E8973A]/60" />
+                  </div>
+                </div>
+                <button
+                  onClick={async () => { setIsProcessing(true); try { await onAddLot(stock, parseFloat(lotPrice), parseFloat(lotQty)); } finally { setIsProcessing(false); setShowLotForm(false); } }}
+                  disabled={isProcessing}
+                  className="w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-[11px] font-bold bg-[#E8973A] text-white hover:bg-[#cf8429] transition-all disabled:opacity-50"
+                >
+                  {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <PlusSquare size={14} />} 確認加碼（更新均價）
+                </button>
+              </div>
+            )}
+
             {/* 編輯持股：點進來就能直接改買價/張數（held item 才有）*/}
-            {stock.is_holding_item && onUpdatePortfolio && (
+            {stock.is_holding_item && onUpdatePortfolio && !showLotForm && (
               <div className="bg-white/5 p-4 rounded-3xl border border-white/10 space-y-3">
                 <div className="flex items-center gap-1.5">
                   <Pencil size={12} className="text-[#E8973A]" />
@@ -282,6 +327,32 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                 </button>
               </div>
             )}
+
+            {/* 加碼按鈕（持股才出現） */}
+            {stock.is_holding_item && onAddLot && !showLotForm && (
+              <button
+                onClick={() => setShowLotForm(true)}
+                className="w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-[11px] font-bold bg-white/5 border border-white/10 text-[#E8973A] hover:bg-white/10 transition-all"
+              >
+                <PlusSquare size={14} /> 加碼買進（計算均價）
+              </button>
+            )}
+
+            {/* 願望清單按鈕（非持股才出現） */}
+            {!stock.is_holding_item && onToggleWatchlist && (
+              <button
+                onClick={async () => { setIsProcessing(true); try { await onToggleWatchlist(stock); } finally { setIsProcessing(false); } }}
+                disabled={isProcessing}
+                className={`w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-[11px] font-bold transition-all
+                  ${isWatchlisted
+                    ? 'bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25'
+                    : 'bg-white/5 border border-white/10 text-slate-400 hover:text-amber-400 hover:border-amber-500/30'}`}
+              >
+                {isWatchlisted ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
+                {isWatchlisted ? '已加入願望清單（點此移除）' : '加入願望清單'}
+              </button>
+            )}
+
             <button
               onClick={handleAction} disabled={isProcessing}
               className={`w-full py-4 rounded-2xl flex items-center justify-center gap-2 text-[11px] font-bold transition-all
