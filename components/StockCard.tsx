@@ -74,7 +74,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
     }
     // 🏆 亮燈數（嚴選七盞驗證燈）——買進訊號才顯示，燈越多歷史勝率越高
     if (isBuySignal && lit && lit.length > 0) {
-      reasons.push(`亮燈${lit.length}/10`);
+      reasons.push(`亮燈${lit.length}/5`);
     }
     // 🧪 同類訊號的歷史命中率（回測算的真實統計，n≥30 才講）→ 證明結論是統計不是生成。
     //    只掛在「買進類」結論上：命中定義＝之後漲贏門檻，對觀望/避開講命中率不通，反而自打嘴巴。
@@ -115,7 +115,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
           <div className="w-[3px] shrink-0" style={{ backgroundColor: '#C8A032' }} />
           <div className="px-3.5 py-2 flex items-baseline gap-2 flex-wrap min-w-0">
             <span style={{ fontFamily: 'monospace', letterSpacing: '0.15em', color: '#A8842A' }} className="text-[10px] font-black">🏆 嚴選 #{pickInfo.rank}</span>
-            <span style={{ fontFamily: 'monospace', color: '#8B7E68' }} className="text-[9px]">亮燈 {pickInfo.conds.length}/10：{pickInfo.conds.join('·')}</span>
+            <span style={{ fontFamily: 'monospace', color: '#8B7E68' }} className="text-[9px]">亮燈 {pickInfo.conds.length}/5：{pickInfo.conds.join('·')}</span>
           </div>
         </div>
       )}

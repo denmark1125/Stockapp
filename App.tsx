@@ -164,20 +164,16 @@ const App: React.FC = () => {
       return (Number(s.close_price) / entry) > 1.03;
     };
 
-    // 🏆 嚴選十盞燈（2026-07-02 回測 7371 筆驗證：亮燈越多勝率越高——0燈34.5%→4燈52.8%，近月同樣一路遞增）。
-    //    順序照單燈證據強度排：AI題材56.6%、高機會55.2%、52週高53.0%、RS強勢51.4%、營收穩健51.1%…基準48%。
-    //    52週高/RS強勢 需 daily_analysis 的 pos52w/rs20 欄位（掃描端已防呆，欄位建好自動亮）。
+    // ⭐ 嚴選五盞燈（精兵制，2026-07-03 回測 7371 筆驗證）：只留「單燈有真優勢」的贏家訊號，
+    //    弱燈（均線/法人/新聞/放量/MACD，單燈≈基準48%）會稀釋訊號已移除。
+    //    疊加完美遞增：0燈38.1% → 2燈50.9% → 3燈55.0% → 4燈74.7%（近月也一路遞增到64%）。
+    //    52週高/RS強勢 需 pos52w/rs20 欄位（已建，晨掃起回填——當天資料沒有時該燈不亮不會壞）。
     const PICK_CONDS: [string, (s: DailyAnalysis) => boolean][] = [
       ['AI題材',   s => !!s.ai_theme],
       ['高機會',   s => s.opportunity_label === '🔥 高機會'],
       ['52週高',   s => (Number(s.pos52w) || 0) >= 95],
       ['RS強勢',   s => s.rs20 != null && Number(s.rs20) > 5],
       ['營收穩健', s => s.revenue_yoy != null && Number(s.revenue_yoy) >= 0 && Number(s.revenue_yoy) <= 20],
-      ['均線多頭', s => !!s.trend_bull],
-      ['法人同買', s => (Number(s.foreign_net) || 0) > 0 && (Number(s.trust_net) || 0) > 0],
-      ['新聞偏多', s => (Number(s.news_score) || 0) > 0],
-      ['溫和放量', s => { const v = Number(s.vol_ratio) || 0; return v >= 1.3 && v <= 3.0; }],
-      ['MACD金叉', s => !!s.macd_cross],
     ];
     const litMap: Record<string, string[]> = {};
     latestStocks.forEach(s => { litMap[normCode(s.stock_code)] = PICK_CONDS.filter(([, fn]) => fn(s)).map(([n]) => n); });
@@ -830,7 +826,7 @@ const App: React.FC = () => {
             <div className="mb-12">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-4">
                 <h3 className="text-[15px] font-black text-[#1A1A1A] tracking-wide">🏆 今日嚴選</h3>
-                <span className="text-[10px] font-bold text-slate-400">可進場＋亮燈≥3 才入選 · 歷史驗證：燈越多越會漲（0燈34%→4燈53%）· 共十盞驗證燈</span>
+                <span className="text-[10px] font-bold text-slate-400">可進場＋亮燈≥3 才入選 · 精兵五燈制（0燈38%→3燈55%→4燈75%，全部歷史實證）</span>
               </div>
               {picks.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
