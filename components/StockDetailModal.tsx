@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   X, History, Loader2,
   TrendingUp, TrendingDown, PlusCircle, MinusCircle,
-  Newspaper, HelpCircle, Tag, Pencil, Bookmark, BookmarkCheck, PlusSquare
+  Newspaper, HelpCircle, Tag, Pencil, Bookmark, BookmarkCheck, PlusSquare,
+  ChevronDown, Trash2
 } from 'lucide-react';
 import { DailyAnalysis } from '../types';
 import { fetchStockHistory } from '../services/supabase';
@@ -103,6 +104,8 @@ const NewsSentimentBlock: React.FC<{ sentiment?: string; summary?: string; score
   );
 };
 
+type HoldingTab = 'lot' | 'edit' | 'remove' | null;
+
 export const StockDetailModal: React.FC<StockDetailModalProps> = ({
   stock, onClose, onRunAi, onTogglePortfolio, onUpdatePortfolio, onAddLot, onToggleWatchlist, isWatchlisted, aiReport, isAiLoading
 }) => {
@@ -110,13 +113,13 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showLotForm, setShowLotForm] = useState(false); // 加碼表單
-  const [inputPrice, setInputPrice] = useState(stock.close_price.toString());
-  const [inputQuantity, setInputQuantity] = useState('1');
+  const [holdingTab, setHoldingTab] = useState<HoldingTab>(null); // 持股三功能 tab
+  const [inputPrice, setInputPrice] = useState(stock.close_price > 0 ? stock.close_price.toFixed(1) : '');
+  const [inputQuantity, setInputQuantity] = useState('');
   const [editPrice, setEditPrice] = useState(stock.buy_price != null ? String(stock.buy_price) : '');
   const [editQty, setEditQty] = useState(stock.quantity != null ? String(stock.quantity) : '');
-  const [lotPrice, setLotPrice] = useState(stock.close_price.toString()); // 加碼買入價
-  const [lotQty, setLotQty] = useState('1'); // 加碼數量
+  const [lotPrice, setLotPrice] = useState(stock.close_price > 0 ? stock.close_price.toFixed(1) : '');
+  const [lotQty, setLotQty] = useState('');
 
   const handleEdit = async () => {
     if (!onUpdatePortfolio) return;
@@ -166,8 +169,8 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
 
         <button onClick={onClose} className="fixed lg:absolute top-4 right-4 lg:top-6 lg:right-8 z-50 bg-slate-100 p-2 rounded-full text-slate-800 shadow-md hover:bg-slate-200 transition-all"><X size={20} /></button>
 
-        {/* 左側：戰術控制 */}
-        <div className="w-full lg:w-[340px] bg-[#1A1A1A] text-white p-8 lg:p-10 flex flex-col shrink-0">
+        {/* 左側：戰術控制（加 overflow-y-auto 讓表單在手機不被截斷） */}
+        <div className="w-full lg:w-[340px] bg-[#1A1A1A] text-white p-8 lg:p-10 flex flex-col shrink-0 overflow-y-auto">
 
           {/* 停損警報 */}
           {isStopped && (
@@ -248,121 +251,203 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
             </div>
           </div>
 
-          <div className="mt-6 space-y-3">
-            {/* 新增持股：輸入買入價/數量 */}
-            {showAddForm && !stock.is_holding_item && (
-              <div className="bg-white/5 p-5 rounded-3xl border border-white/5 space-y-4 animate-in slide-in-from-bottom-4 duration-300">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[9px] font-bold text-slate-500 block mb-1">成交價</label>
-                    <input type="number" value={inputPrice} onChange={e => setInputPrice(e.target.value)} className="w-full bg-black border border-white/10 rounded-xl px-4 py-2 text-sm font-bold mono-text text-white outline-none" />
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-bold text-slate-500 block mb-1">數量（股）</label>
-                    <input type="number" value={inputQuantity} onChange={e => setInputQuantity(e.target.value)} className="w-full bg-black border border-white/10 rounded-xl px-4 py-2 text-sm font-bold mono-text text-white outline-none" />
-                  </div>
-                </div>
-              </div>
-            )}
+          {/* ── 底部操作區 ── */}
+          <div className="mt-6">
 
-            {/* 加碼表單 */}
-            {showLotForm && stock.is_holding_item && onAddLot && (
-              <div className="bg-white/5 p-4 rounded-3xl border border-[#E8973A]/30 space-y-3 animate-in slide-in-from-bottom-4 duration-300">
-                <div className="flex items-center gap-1.5">
-                  <PlusSquare size={12} className="text-[#E8973A]" />
-                  <span className="text-[10px] font-black text-[#E8973A] uppercase tracking-widest">加碼買進</span>
-                </div>
-                <p className="text-[9px] text-slate-400">原持倉：{stock.quantity} 股 @ {stock.buy_price} 元
-                  {(() => {
-                    const lp = parseFloat(lotPrice), lq = parseFloat(lotQty);
-                    if (!isNaN(lp) && !isNaN(lq) && lq > 0 && (stock.quantity ?? 0) > 0) {
-                      const newAvg = ((stock.buy_price ?? 0) * (stock.quantity ?? 0) + lp * lq) / ((stock.quantity ?? 0) + lq);
-                      return ` → 加碼後均價 ${newAvg.toFixed(2)} 元 × ${(stock.quantity ?? 0) + lq} 股`;
-                    }
-                    return '';
-                  })()}
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[9px] font-bold text-slate-500 block mb-1">加碼買入價</label>
-                    <input type="number" inputMode="decimal" value={lotPrice} onChange={e => setLotPrice(e.target.value)} className="w-full bg-black border border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold mono-text text-white outline-none focus:border-[#E8973A]/60" />
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-bold text-slate-500 block mb-1">加碼數量（股）</label>
-                    <input type="number" inputMode="numeric" value={lotQty} onChange={e => setLotQty(e.target.value)} className="w-full bg-black border border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold mono-text text-white outline-none focus:border-[#E8973A]/60" />
+            {/* ── 持股模式：持倉摘要卡 + 手風琴操作列 ── */}
+            {stock.is_holding_item ? (
+              <div className="space-y-2.5">
+
+                {/* 持倉摘要卡 */}
+                <div className="bg-gradient-to-br from-[#E8973A]/25 to-[#E8973A]/5 border border-[#E8973A]/40 rounded-2xl p-4">
+                  <p className="text-[9px] font-black text-[#E8973A] uppercase tracking-[0.2em] mb-3">📒 我的持倉</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <p className="text-[9px] text-slate-500 font-bold mb-0.5">平均成本</p>
+                      <p className="text-lg font-bold mono-text text-white leading-none">{stock.buy_price ?? '--'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-slate-500 font-bold mb-0.5">持有股數</p>
+                      <p className="text-lg font-bold mono-text text-white leading-none">{(stock.quantity ?? 0).toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-slate-500 font-bold mb-0.5">投入成本</p>
+                      <p className="text-lg font-bold mono-text text-white leading-none">{Math.round((stock.buy_price ?? 0) * (stock.quantity ?? 0)).toLocaleString()}</p>
+                    </div>
                   </div>
                 </div>
+
+                {/* 操作列：手風琴（點列展開表單） */}
+                {([
+                  { key: 'lot' as HoldingTab, icon: <PlusSquare size={16} />, title: '加碼買進', desc: '又買了一批？自動幫你算新均價', color: 'text-emerald-400 bg-emerald-500/15' },
+                  { key: 'edit' as HoldingTab, icon: <Pencil size={16} />, title: '修改記錄', desc: '買價或股數打錯了，在這裡改', color: 'text-sky-400 bg-sky-500/15' },
+                  { key: 'remove' as HoldingTab, icon: <Trash2 size={16} />, title: '移除持股', desc: '已賣出或不想追蹤了', color: 'text-rose-400 bg-rose-500/15' },
+                ]).map(row => (
+                  <div key={row.key} className={`rounded-2xl border transition-all ${holdingTab === row.key ? 'border-[#E8973A]/50 bg-white/[0.06]' : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.05]'}`}>
+                    <button
+                      onClick={() => setHoldingTab(holdingTab === row.key ? null : row.key)}
+                      className="w-full flex items-center gap-3 p-3.5 text-left"
+                    >
+                      <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${row.color}`}>{row.icon}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[12px] font-bold text-white">{row.title}</span>
+                        <span className="block text-[9px] text-slate-500 truncate">{row.desc}</span>
+                      </span>
+                      <ChevronDown size={16} className={`text-slate-500 shrink-0 transition-transform ${holdingTab === row.key ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* 加碼表單 */}
+                    {holdingTab === row.key && row.key === 'lot' && onAddLot && (() => {
+                      const lp = parseFloat(lotPrice), lq = parseFloat(lotQty);
+                      const oldQty = stock.quantity ?? 0, oldPrice = stock.buy_price ?? 0;
+                      const newAvg = (!isNaN(lp) && !isNaN(lq) && lq > 0 && oldQty > 0)
+                        ? ((oldPrice * oldQty + lp * lq) / (oldQty + lq)).toFixed(2) : null;
+                      return (
+                        <div className="px-3.5 pb-3.5 space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[9px] text-slate-500 font-bold block mb-1.5">這批買入價（元）</label>
+                              <input
+                                type="text" inputMode="decimal" placeholder={stock.close_price > 0 ? String(stock.close_price) : '例：53'}
+                                value={lotPrice} onChange={e => setLotPrice(e.target.value)}
+                                className="w-full bg-black/40 border border-white/25 rounded-xl px-3 py-3 text-base font-bold text-white placeholder-slate-600 outline-none focus:border-[#E8973A] transition-colors"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] text-slate-500 font-bold block mb-1.5">這批股數</label>
+                              <input
+                                type="text" inputMode="numeric" placeholder="例：2000"
+                                value={lotQty} onChange={e => setLotQty(e.target.value)}
+                                className="w-full bg-black/40 border border-white/25 rounded-xl px-3 py-3 text-base font-bold text-white placeholder-slate-600 outline-none focus:border-[#E8973A] transition-colors"
+                              />
+                            </div>
+                          </div>
+                          {newAvg && (
+                            <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-3 py-2.5 text-[11px] text-emerald-400 font-bold">
+                              ✨ 加碼後：均價 {newAvg} 元 × {(oldQty + lq).toLocaleString()} 股
+                            </div>
+                          )}
+                          <button
+                            onClick={async () => {
+                              if (!lotPrice || !lotQty) return;
+                              setIsProcessing(true);
+                              try { await onAddLot(stock, parseFloat(lotPrice), parseFloat(lotQty)); setHoldingTab(null); }
+                              catch (e) { console.error(e); }
+                              finally { setIsProcessing(false); }
+                            }}
+                            disabled={isProcessing || !lotPrice || !lotQty}
+                            className="w-full py-3.5 rounded-xl bg-emerald-500 text-white text-[12px] font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 disabled:opacity-40 transition-all"
+                          >
+                            {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <PlusSquare size={14} />} 確認加碼
+                          </button>
+                        </div>
+                      );
+                    })()}
+
+                    {/* 修改表單 */}
+                    {holdingTab === row.key && row.key === 'edit' && onUpdatePortfolio && (
+                      <div className="px-3.5 pb-3.5 space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[9px] text-slate-500 font-bold block mb-1.5">成交價（元）</label>
+                            <input
+                              type="text" inputMode="decimal"
+                              value={editPrice} onChange={e => setEditPrice(e.target.value)}
+                              className="w-full bg-black/40 border border-white/25 rounded-xl px-3 py-3 text-base font-bold text-white outline-none focus:border-[#E8973A] transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] text-slate-500 font-bold block mb-1.5">股數</label>
+                            <input
+                              type="text" inputMode="numeric"
+                              value={editQty} onChange={e => setEditQty(e.target.value)}
+                              className="w-full bg-black/40 border border-white/25 rounded-xl px-3 py-3 text-base font-bold text-white outline-none focus:border-[#E8973A] transition-colors"
+                            />
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleEdit} disabled={isProcessing}
+                          className="w-full py-3.5 rounded-xl bg-sky-500 text-white text-[12px] font-bold flex items-center justify-center gap-2 hover:bg-sky-600 disabled:opacity-40 transition-all"
+                        >
+                          {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={14} />} 儲存修改
+                        </button>
+                      </div>
+                    )}
+
+                    {/* 移除確認 */}
+                    {holdingTab === row.key && row.key === 'remove' && (
+                      <div className="px-3.5 pb-3.5 space-y-3">
+                        <p className="text-[11px] text-rose-300 leading-relaxed">確定要從帳冊移除 <span className="font-bold text-white">{stock.stock_name}</span> 嗎？此操作無法復原。</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button onClick={() => setHoldingTab(null)} className="py-3 rounded-xl bg-white/5 text-slate-400 text-[11px] font-bold hover:bg-white/10 transition-all">先不要</button>
+                          <button
+                            onClick={async () => { setIsProcessing(true); try { await onTogglePortfolio(stock); } catch(e){console.error(e);} finally { setIsProcessing(false); } }}
+                            disabled={isProcessing}
+                            className="py-3 rounded-xl bg-rose-500 text-white text-[11px] font-bold flex items-center justify-center gap-1 hover:bg-rose-600 disabled:opacity-40 transition-all"
+                          >
+                            {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} 確認移除
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* ── 非持股模式：登錄 + 願望清單 ── */
+              <div className="space-y-2">
+                {/* 買入表單 */}
+                {showAddForm && (
+                  <div className="bg-white/5 rounded-2xl p-4 space-y-3 mb-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[9px] text-slate-500 font-bold block mb-1.5">成交價（元）</label>
+                        <input
+                          type="text" inputMode="decimal" placeholder={stock.close_price > 0 ? String(stock.close_price) : '買入價格'}
+                          value={inputPrice} onChange={e => setInputPrice(e.target.value)}
+                          className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-sm font-bold text-white placeholder-slate-600 outline-none focus:border-[#E8973A] transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] text-slate-500 font-bold block mb-1.5">股數</label>
+                        <input
+                          type="text" inputMode="numeric" placeholder="例：1000"
+                          value={inputQuantity} onChange={e => setInputQuantity(e.target.value)}
+                          className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-sm font-bold text-white placeholder-slate-600 outline-none focus:border-[#E8973A] transition-colors"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <button
-                  onClick={async () => { setIsProcessing(true); try { await onAddLot(stock, parseFloat(lotPrice), parseFloat(lotQty)); } finally { setIsProcessing(false); setShowLotForm(false); } }}
+                  onClick={async () => {
+                    if (!showAddForm) { setShowAddForm(true); return; }
+                    if (!inputPrice || !inputQuantity) return;
+                    setIsProcessing(true);
+                    try { await onTogglePortfolio(stock, parseFloat(inputPrice), parseFloat(inputQuantity)); setShowAddForm(false); }
+                    catch (e) { console.error(e); }
+                    finally { setIsProcessing(false); }
+                  }}
                   disabled={isProcessing}
-                  className="w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-[11px] font-bold bg-[#E8973A] text-white hover:bg-[#cf8429] transition-all disabled:opacity-50"
+                  className="w-full py-4 rounded-2xl bg-[#E8973A] text-white text-[12px] font-bold flex items-center justify-center gap-2 hover:bg-[#cf8429] disabled:opacity-40 transition-all"
                 >
-                  {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <PlusSquare size={14} />} 確認加碼（更新均價）
+                  {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <PlusCircle size={16} />}
+                  {showAddForm ? '確認登錄帳冊' : '＋ 登錄持股'}
                 </button>
+                {onToggleWatchlist && (
+                  <button
+                    onClick={async () => { setIsProcessing(true); try { await onToggleWatchlist(stock); } finally { setIsProcessing(false); } }}
+                    disabled={isProcessing}
+                    className={`w-full py-3 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-2 transition-all border ${
+                      isWatchlisted ? 'bg-amber-500/15 border-amber-500/40 text-amber-400' : 'bg-transparent border-white/15 text-slate-400 hover:border-amber-500/40 hover:text-amber-400'
+                    }`}
+                  >
+                    {isWatchlisted ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
+                    {isWatchlisted ? '從願望清單移除' : '加入願望清單'}
+                  </button>
+                )}
               </div>
             )}
-
-            {/* 編輯持股：點進來就能直接改買價/張數（held item 才有）*/}
-            {stock.is_holding_item && onUpdatePortfolio && !showLotForm && (
-              <div className="bg-white/5 p-4 rounded-3xl border border-white/10 space-y-3">
-                <div className="flex items-center gap-1.5">
-                  <Pencil size={12} className="text-[#E8973A]" />
-                  <span className="text-[10px] font-black text-[#E8973A] uppercase tracking-widest">編輯持股</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[9px] font-bold text-slate-500 block mb-1">成交價（買入價）</label>
-                    <input type="number" inputMode="decimal" value={editPrice} onChange={e => setEditPrice(e.target.value)} className="w-full bg-black border border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold mono-text text-white outline-none focus:border-[#E8973A]/60" />
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-bold text-slate-500 block mb-1">股數</label>
-                    <input type="number" inputMode="numeric" value={editQty} onChange={e => setEditQty(e.target.value)} className="w-full bg-black border border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold mono-text text-white outline-none focus:border-[#E8973A]/60" />
-                  </div>
-                </div>
-                <button
-                  onClick={handleEdit} disabled={isProcessing}
-                  className="w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-[11px] font-bold bg-[#E8973A] text-white hover:bg-[#cf8429] transition-all disabled:opacity-50"
-                >
-                  {isProcessing ? <Loader2 size={16} className="animate-spin" /> : '💾'} 儲存修改
-                </button>
-              </div>
-            )}
-
-            {/* 加碼按鈕（持股才出現） */}
-            {stock.is_holding_item && onAddLot && !showLotForm && (
-              <button
-                onClick={() => setShowLotForm(true)}
-                className="w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-[11px] font-bold bg-white/5 border border-white/10 text-[#E8973A] hover:bg-white/10 transition-all"
-              >
-                <PlusSquare size={14} /> 加碼買進（計算均價）
-              </button>
-            )}
-
-            {/* 願望清單按鈕（非持股才出現） */}
-            {!stock.is_holding_item && onToggleWatchlist && (
-              <button
-                onClick={async () => { setIsProcessing(true); try { await onToggleWatchlist(stock); } finally { setIsProcessing(false); } }}
-                disabled={isProcessing}
-                className={`w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-[11px] font-bold transition-all
-                  ${isWatchlisted
-                    ? 'bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25'
-                    : 'bg-white/5 border border-white/10 text-slate-400 hover:text-amber-400 hover:border-amber-500/30'}`}
-              >
-                {isWatchlisted ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
-                {isWatchlisted ? '已加入願望清單（點此移除）' : '加入願望清單'}
-              </button>
-            )}
-
-            <button
-              onClick={handleAction} disabled={isProcessing}
-              className={`w-full py-4 rounded-2xl flex items-center justify-center gap-2 text-[11px] font-bold transition-all
-                ${stock.is_holding_item
-                  ? 'bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20'
-                  : showAddForm ? 'bg-[#E8973A] text-white' : 'bg-white text-black hover:bg-slate-200'}`}
-            >
-              {isProcessing ? <Loader2 size={16} className="animate-spin" /> : stock.is_holding_item ? <MinusCircle size={16} /> : <PlusCircle size={16} />}
-              {stock.is_holding_item ? '移除此項持股' : showAddForm ? '確認登錄帳冊' : '登錄今日持股'}
-            </button>
           </div>
         </div>
 
