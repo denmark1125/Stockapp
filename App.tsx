@@ -11,6 +11,7 @@ import { ActionCard } from './components/StockCard';
 import { SystemStatus } from './components/SystemStatus';
 import { MarketBriefing } from './components/MarketBriefing';
 import { StockDetailModal } from './components/StockDetailModal';
+import { ShibaChat } from './components/ShibaChat';
 import { GlobalAiReportModal } from './components/GlobalAiReportModal';
 import { format } from 'date-fns';
 
@@ -155,12 +156,15 @@ const App: React.FC = () => {
     const litMap: Record<string, string[]> = {};
     latestStocks.forEach(s => { litMap[normCode(s.stock_code)] = PICK_CONDS.filter(([, fn]) => fn(s)).map(([n]) => n); });
     const litCount = (s: DailyAnalysis) => (litMap[normCode(s.stock_code)] || []).length;
+    // 雷達/市場排序用「不含AI題材」的燈數——雷達要看全台股體質，不因 AI 題材加分而擠掉其他好股；
+    // AI 偏好只留在「今日嚴選」（七盞全算）與「AI 特區」
+    const litCountNoAI = (s: DailyAnalysis) => (litMap[normCode(s.stock_code)] || []).filter(n => n !== 'AI題材').length;
 
-    // 排序（全清單一致，看得懂）：① 可進場優先於追高 ② 亮燈數多的優先 ③ 再依分數
+    // 排序（全清單一致，看得懂）：① 可進場優先於追高 ② 亮燈數多的優先（不含AI燈）③ 再依分數
     let baseList = [...latestStocks].sort((a, b) => {
       const ca = isChasing(a) ? 1 : 0, cb = isChasing(b) ? 1 : 0;
       if (ca !== cb) return ca - cb;
-      const la = litCount(a), lb = litCount(b);
+      const la = litCountNoAI(a), lb = litCountNoAI(b);
       if (la !== lb) return lb - la;
       return getEliteScore(b) - getEliteScore(a);
     });
@@ -923,6 +927,15 @@ const App: React.FC = () => {
       {isGlobalReportOpen && (
         <GlobalAiReportModal type={globalReportType} onClose={() => setIsGlobalReportOpen(false)} portfolioStocks={state.portfolio.map(p => p.stock_name)} />
       )}
+
+      {/* 🐕 汪汪柴犬管家：右下角浮動聊天（丟代碼查個股、問今天買什麼、問持股怎麼辦） */}
+      <ShibaChat
+        stocks={processedData.fullList}
+        holdings={processedData.portfolioList}
+        topPicks={processedData.topPicks}
+        litMap={processedData.litMap}
+        market={{ regime: processedData.marketRegime, changePct: processedData.marketChangePct, msg: processedData.marketCautionMsg }}
+      />
     </div>
   );
 };
