@@ -289,27 +289,29 @@ const App: React.FC = () => {
     };
   }, [state.data, state.portfolio, strategy, searchQuery, holdingAdvice, realtimeQuotes]);
 
-  // 📡 盤中即時價輪詢（免費：TWSE MIS 經 quote edge function）：
-  // 嚴選＋雷達＋AI區＋持股的股價，開盤時間每 60 秒更新一次；收盤後不輪詢不浪費。
+  // 📡 盤中即時價輪詢（免費：TWSE MIS 經 quote edge function，v2 支援整批分批打）：
+  // 涵蓋「今日全部分析股（雷達/AI/市場/嚴選都是它的子集）＋帳冊持股」，
+  // 開盤時間每 60 秒更新一次；收盤後、分頁隱藏時不輪詢不浪費。
   const pdRef = useRef(processedData);
   pdRef.current = processedData;
   useEffect(() => {
     if (!session) return;
     const poll = () => {
+      if (document.visibilityState === 'hidden') return; // 分頁沒在看就不打
       const pd = pdRef.current;
       const codes = [...new Set([
-        ...pd.portfolioList.map(s => s.stock_code),
-        ...pd.topPicks.map(s => s.stock_code),
-        ...pd.eliteList.map(s => s.stock_code),
-        ...pd.aiList.slice(0, 10).map(s => s.stock_code),
-      ])].slice(0, 50);
+        ...pd.fullList.map(s => s.stock_code),      // 今日全部（雷達/AI/市場/嚴選皆子集）
+        ...pd.portfolioList.map(s => s.stock_code), // 持股（含今天沒被掃到的）
+      ])].slice(0, 500);
       if (codes.length) fetchRealtimeQuotes(codes).then(q => {
         if (Object.keys(q).length) setRealtimeQuotes(prev => ({ ...prev, ...q }));
       });
     };
     poll(); // 進頁先抓一次（收盤後 MIS 回昨收，也能補未分析股的現價）
     const id = setInterval(() => { if (isTwMarketOpen()) poll(); }, 60_000);
-    return () => clearInterval(id);
+    const onVis = () => { if (document.visibilityState === 'visible' && isTwMarketOpen()) poll(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, processedData.latestDate]);
 
