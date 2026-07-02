@@ -56,6 +56,7 @@ export interface DailyAnalysis {
   gbrain_action?: string | null;  // GBrain 持股建議標籤
   gbrain_reason?: string | null;  // GBrain 建議理由
   risk_flag?: string | null;  // 防雷：處置/注意/全額交割
+  rt_live?: boolean;          // 現價是否為盤中即時價（TWSE MIS，免費）
 }
 
 export interface PortfolioItem {

@@ -160,6 +160,12 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
             <div className="text-[28px] font-bold leading-none" style={{ fontFamily: 'monospace', color: isBuySignal ? '#C83232' : '#1A1A1A', fontVariantNumeric: 'tabular-nums' }}>
               {stock.close_price}
             </div>
+            {stock.rt_live && (
+              <div className="flex items-center justify-end gap-1 mt-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span style={{ fontFamily: 'monospace' }} className="text-[8px] font-bold text-emerald-600 uppercase tracking-wider">LIVE</span>
+              </div>
+            )}
             {stock.is_holding_item && (
               <div className={`text-[11px] font-bold mt-1 flex items-center justify-end gap-1 ${isProfit ? 'text-[#C83232]' : 'text-emerald-700'}`}>
                 {isProfit ? <TrendingUp size={10} /> : <TrendingDown size={10} />}

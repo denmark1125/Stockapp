@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Compass, Layout, Wallet, LogOut, Search, Plus, Zap, Cpu,
   ArrowUpRight, ChevronRight, X, AlertTriangle, FileDown, FileSpreadsheet, FileText
@@ -40,6 +40,7 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [manualSearchResults, setManualSearchResults] = useState<DailyAnalysis[]>([]);
   const [marketSearch, setMarketSearch] = useState(''); // 市場列表快速搜尋（代碼/名稱）
+  const [historyResults, setHistoryResults] = useState<DailyAnalysis[]>([]); // 今日沒掃到時的歷史庫搜尋結果（如力積電）
 
   const [isGlobalReportOpen, setIsGlobalReportOpen] = useState(false);
   const [globalReportType, setGlobalReportType] = useState<'daily' | 'weekly'>('daily');
@@ -78,6 +79,13 @@ const App: React.FC = () => {
   // 代碼正規化：去掉 .TW/.TWO 後綴，讓「1455」與「1455.TW」能對得上（持股合併用）
   const normCode = (c?: string) => (c || '').replace(/\.(TW|TWO)$/i, '').trim().toUpperCase();
 
+  // 台股盤中判斷（週一~五 09:00–13:35 台灣時間）——盤中才輪詢即時價，收盤後不浪費請求
+  const isTwMarketOpen = () => {
+    const tw = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
+    const d = tw.getDay(), t = tw.getHours() * 60 + tw.getMinutes();
+    return d >= 1 && d <= 5 && t >= 540 && t <= 815;
+  };
+
   const processedData = useMemo(() => {
     const latestSnapshotMap = new Map<string, DailyAnalysis>();
     const scoreHistoryMap = new Map<string, number[]>();
@@ -97,7 +105,13 @@ const App: React.FC = () => {
     const latestDate = allDates[0] || null;
     const latestData = latestDate ? state.data.filter(s => s.analysis_date === latestDate) : [];
     const marketBrief = latestData.find(s => s.stock_code === 'MARKET_BRIEF') || null;
-    const latestStocks = latestData.filter(s => s.stock_code !== 'MARKET_BRIEF' && s.stock_code !== 'MARKET_STATE' && s.stock_code !== 'SIGNAL_STATS');
+    // 清單股價套用盤中即時價（TWSE MIS 免費），有即時價的標 rt_live 顯示綠點
+    const latestStocks = latestData
+      .filter(s => s.stock_code !== 'MARKET_BRIEF' && s.stock_code !== 'MARKET_STATE' && s.stock_code !== 'SIGNAL_STATS')
+      .map(s => {
+        const rt = realtimeQuotes[normCode(s.stock_code)];
+        return rt && rt > 0 && rt !== Number(s.close_price) ? { ...s, close_price: rt, rt_live: true } : s;
+      });
 
     // 📊 訊號歷史命中率（回測寫進 SIGNAL_STATS 列的 ai_comment，JSON）→ 卡片「同類訊號近半年命中 X 成」
     //    量法＝碰TP1先於停損；含近月/前月趨勢；_gbrain＝GBrain 高機會自驗命中率趨勢（真正的進步記分板）
@@ -274,6 +288,49 @@ const App: React.FC = () => {
       searchResults: searchQuery ? latestStocks.filter(s => s.stock_name.includes(searchQuery) || s.stock_code.includes(searchQuery)).slice(0, 5) : []
     };
   }, [state.data, state.portfolio, strategy, searchQuery, holdingAdvice, realtimeQuotes]);
+
+  // 📡 盤中即時價輪詢（免費：TWSE MIS 經 quote edge function）：
+  // 嚴選＋雷達＋AI區＋持股的股價，開盤時間每 60 秒更新一次；收盤後不輪詢不浪費。
+  const pdRef = useRef(processedData);
+  pdRef.current = processedData;
+  useEffect(() => {
+    if (!session) return;
+    const poll = () => {
+      const pd = pdRef.current;
+      const codes = [...new Set([
+        ...pd.portfolioList.map(s => s.stock_code),
+        ...pd.topPicks.map(s => s.stock_code),
+        ...pd.eliteList.map(s => s.stock_code),
+        ...pd.aiList.slice(0, 10).map(s => s.stock_code),
+      ])].slice(0, 50);
+      if (codes.length) fetchRealtimeQuotes(codes).then(q => {
+        if (Object.keys(q).length) setRealtimeQuotes(prev => ({ ...prev, ...q }));
+      });
+    };
+    poll(); // 進頁先抓一次（收盤後 MIS 回昨收，也能補未分析股的現價）
+    const id = setInterval(() => { if (isTwMarketOpen()) poll(); }, 60_000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, processedData.latestDate]);
+
+  // 🔍 市場搜尋歷史庫遞補：今天沒掃到的股（如力積電）自動翻歷史紀錄＋抓即時價
+  useEffect(() => {
+    const q = marketSearch.trim();
+    if (activeView !== 'full' || q.length < 2) { setHistoryResults([]); return; }
+    const ql = q.toLowerCase();
+    const inToday = pdRef.current.fullList.some(s =>
+      (s.stock_code || '').replace('.TW', '').toLowerCase().includes(ql) || (s.stock_name || '').toLowerCase().includes(ql));
+    if (inToday) { setHistoryResults([]); return; }
+    const t = setTimeout(async () => {
+      const rows = await searchStockAcrossHistory(q);
+      setHistoryResults(rows.slice(0, 6) as DailyAnalysis[]);
+      if (rows.length) fetchRealtimeQuotes(rows.map(r => r.stock_code)).then(qt => {
+        if (Object.keys(qt).length) setRealtimeQuotes(prev => ({ ...prev, ...qt }));
+      });
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [marketSearch, activeView]);
 
   const handleRunStockAi = async (stock: DailyAnalysis) => {
     setIsStockAiLoading(true);
@@ -810,12 +867,26 @@ const App: React.FC = () => {
             const code = (s.stock_code || '').replace('.TW', '').toLowerCase();
             const name = (s.stock_name || '').toLowerCase();
             return code.includes(q) || name.includes(q);
-          }).length === 0 && (
+          }).length === 0 && (historyResults.length > 0 ? (
+            <>
+              <div className="col-span-full px-5 py-3 bg-amber-50 border border-amber-200 rounded-2xl text-[11px] font-bold text-amber-700">
+                📅 「{marketSearch.trim()}」今天雷達沒掃到——以下是最近一次的分析紀錄（分析日期：{historyResults[0]?.analysis_date}），股價已換成最新即時價
+              </div>
+              {historyResults.map(r => {
+                const rt = realtimeQuotes[(r.stock_code || '').replace(/\.(TW|TWO)$/i, '').toUpperCase()];
+                return (
+                  <ActionCard key={`hist-${r.stock_code}`} stock={rt && rt > 0 ? { ...r, close_price: rt, rt_live: true } : r}
+                    strategyMode={strategy} signalStats={processedData.signalStats}
+                    onSelect={() => { setSelectedStock(r); setStockAiReport(null); }} />
+                );
+              })}
+            </>
+          ) : (
             <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-slate-100">
-              <p className="serif-text text-xl text-slate-300 italic mb-2">市場清單裡找不到「{marketSearch.trim()}」</p>
-              <p className="text-[10px] font-bold text-slate-400 leading-relaxed">系統每天只分析有訊號/法人動向的股票（約 200 檔），<br/>冷門股可能今天沒被掃到。可改用 LINE 傳代碼查詢。</p>
+              <p className="serif-text text-xl text-slate-300 italic mb-2">找不到「{marketSearch.trim()}」</p>
+              <p className="text-[10px] font-bold text-slate-400 leading-relaxed">歷史資料庫也沒有這檔的分析紀錄，<br/>可能代碼/名稱有誤，或系統從未掃到過它。</p>
             </div>
-          )}
+          ))}
 
           {activeView === 'ai' && processedData.aiList.length === 0 && !state.loading && (
             <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border border-slate-100">
