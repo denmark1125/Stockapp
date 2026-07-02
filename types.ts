@@ -57,6 +57,8 @@ export interface DailyAnalysis {
   gbrain_reason?: string | null;  // GBrain 建議理由
   risk_flag?: string | null;  // 防雷：處置/注意/全額交割
   rt_live?: boolean;          // 現價是否為盤中即時價（TWSE MIS，免費）
+  pos52w?: number | null;     // 52週高位置%（現價/近250日最高收盤，2026-07-02 驗證燈）
+  rs20?: number | null;       // RS 相對強度（個股20日報酬−大盤20日報酬，歐尼爾理論）
 }
 
 export interface PortfolioItem {
