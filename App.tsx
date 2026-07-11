@@ -10,6 +10,7 @@ import { exportToExcel, exportToPdf } from './utils/exportReport';
 import { ActionCard } from './components/StockCard';
 import { SystemStatus } from './components/SystemStatus';
 import { MarketBriefing } from './components/MarketBriefing';
+import { MarketPulse, SectorFlowData } from './components/MarketPulse';
 import { StockDetailModal } from './components/StockDetailModal';
 import { ShibaChat } from './components/ShibaChat';
 import { GuideModal } from './components/GuideModal';
@@ -110,14 +111,14 @@ const App: React.FC = () => {
 
     // ⚠️ 算「最新日期」只看真正的股票列，略過 MARKET_*/SIGNAL_STATS 這些特殊列——
     //    否則回測寫一筆「今天」的 SIGNAL_STATS、但今天選股還沒跑時，latestDate 會指到沒有股票的日期 → 清單變空白
-    const SPECIAL_CODES = new Set(['MARKET_BRIEF', 'MARKET_STATE', 'SIGNAL_STATS']);
+    const SPECIAL_CODES = new Set(['MARKET_BRIEF', 'MARKET_STATE', 'SIGNAL_STATS', 'SECTOR_FLOW']);
     const allDates = [...new Set(state.data.filter(s => !SPECIAL_CODES.has(s.stock_code)).map(s => s.analysis_date))].sort().reverse();
     const latestDate = allDates[0] || null;
     const latestData = latestDate ? state.data.filter(s => s.analysis_date === latestDate) : [];
     const marketBrief = latestData.find(s => s.stock_code === 'MARKET_BRIEF') || null;
     // 清單股價套用盤中即時價（TWSE MIS 免費），有即時價的標 rt_live 顯示綠點
     const latestStocks = latestData
-      .filter(s => s.stock_code !== 'MARKET_BRIEF' && s.stock_code !== 'MARKET_STATE' && s.stock_code !== 'SIGNAL_STATS')
+      .filter(s => !SPECIAL_CODES.has(s.stock_code))
       .map(s => {
         const rt = realtimeQuotes[normCode(s.stock_code)];
         return rt && rt > 0 && rt !== Number(s.close_price) ? { ...s, close_price: rt, rt_live: true } : s;
@@ -138,6 +139,18 @@ const App: React.FC = () => {
         const gb = parsed._gbrain && typeof parsed._gbrain.wr === 'number' ? parsed._gbrain : null;
         return { signalStats: out, gbrainTrend: gb };
       } catch { return { signalStats: {}, gbrainTrend: null }; }
+    })();
+
+    // 🗺️ 產業脈動（掃描器收盤後寫進 SECTOR_FLOW 列的 ai_comment，JSON）→ 熱力圖＋資金流排行
+    const sectorFlow: SectorFlowData | null = (() => {
+      const rows = state.data.filter(s => s.stock_code === 'SECTOR_FLOW' && s.ai_comment);
+      if (!rows.length) return null;
+      const row = rows.sort((a, b) => (b.analysis_date || '').localeCompare(a.analysis_date || ''))[0];
+      try {
+        const parsed = JSON.parse(row.ai_comment as string);
+        if (!Array.isArray(parsed?.sectors) || !parsed.sectors.length) return null;
+        return parsed as SectorFlowData;
+      } catch { return null; }
     })();
 
     // 取得最新大盤狀態
@@ -299,6 +312,7 @@ const App: React.FC = () => {
       marketCautionMsg,
       signalStats,
       gbrainTrend,
+      sectorFlow,
       eliteList,
       aiList,
       topPicks,
@@ -845,6 +859,9 @@ const App: React.FC = () => {
             </div>
           );
         })()}
+
+        {/* 🗺️ 產業脈動：熱力圖＋資金流排行（收盤後由掃描器寫入 SECTOR_FLOW 特殊列） */}
+        {activeView === 'full' && <MarketPulse flow={processedData.sectorFlow} />}
 
         {/* 🔍 市場列表快速搜尋：打代碼或名稱即時篩選，不用一筆一筆找 */}
         {activeView === 'full' && (

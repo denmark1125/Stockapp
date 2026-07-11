@@ -522,6 +522,51 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
 
 
 
+          {/* 🧭 五面向體檢：既有數據的視覺化整理（非新演算法），一眼看出這檔強在哪弱在哪 */}
+          {(() => {
+            const clamp = (v: number, lo = 5, hi = 95) => Math.max(lo, Math.min(hi, v));
+            const theme = stock.opportunity_score != null ? clamp(Number(stock.opportunity_score), 0, 100)
+              : (stock.ai_theme ? 60 : 40);
+            const tech = clamp(Math.max(Number(stock.score_short) || 0, Number(stock.score_long) || 0), 0, 100);
+            const chips = clamp(50
+              + ((stock.foreign_net ?? 0) > 0 ? 20 : (stock.foreign_net ?? 0) < 0 ? -15 : 0)
+              + ((stock.trust_net ?? 0) > 0 ? 20 : (stock.trust_net ?? 0) < 0 ? -15 : 0));
+            const news = clamp(50 + (Number(stock.news_score) || 0) * 2.5);
+            const roe = stock.roe != null ? Number(stock.roe) : null;
+            const funda = clamp(50
+              + (stock.revenue_yoy != null ? Math.max(-15, Math.min(15, Number(stock.revenue_yoy) / 2)) : 0)
+              + (roe == null ? 0 : roe >= 15 ? 15 : roe >= 5 ? 5 : roe <= 0 ? -10 : 0));
+            const dims: [string, number, string][] = [
+              ['題材面', theme, '🔥'], ['技術面', tech, '📈'], ['籌碼面', chips, '🏦'],
+              ['新聞面', news, '📰'], ['基本面', funda, '🏗️'],
+            ];
+            const total = Math.round(dims.reduce((a, [, v]) => a + v, 0) / dims.length);
+            const barCol = (v: number) => v >= 70 ? '#C83232' : v >= 40 ? '#E8973A' : '#7BA893';
+            return (
+              <div className="mb-6">
+                <h3 className="text-[13px] font-bold text-slate-400 uppercase tracking-widest mb-3">五面向體檢</h3>
+                <div className="bg-[#FBF9F4] border border-[#F0EAE0] rounded-2xl p-4 flex gap-4 items-center">
+                  <div className="flex-1 space-y-2.5 min-w-0">
+                    {dims.map(([label, v, emoji]) => (
+                      <div key={label} className="flex items-center gap-2">
+                        <span className="text-[12px] font-bold text-slate-500 w-[4.5rem] shrink-0">{emoji} {label}</span>
+                        <div className="flex-1 h-2.5 bg-[#EFE9DC] rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all" style={{ width: `${Math.round(v)}%`, background: barCol(v) }} />
+                        </div>
+                        <span className="num text-[13px] font-black w-8 text-right shrink-0" style={{ color: barCol(v) }}>{Math.round(v)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="shrink-0 text-center w-20">
+                    <p className="num text-[34px] font-black leading-none" style={{ color: barCol(total) }}>{total}</p>
+                    <p className="text-[11px] font-bold text-[#A89878] mt-1">綜合分</p>
+                  </div>
+                </div>
+                <p className="text-[11px] font-bold text-[#B8A882] mt-2">既有數據的視覺化整理（非新演算法）· 分數 0-100，越高越強</p>
+              </div>
+            );
+          })()}
+
           {/* 籌碼面 */}
           {(stock.trust_net !== 0 || stock.foreign_net !== 0) && (
             <div className="mb-6">
