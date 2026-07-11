@@ -21,7 +21,7 @@ const Section: React.FC<{ icon: string; title: string; children: React.ReactNode
 );
 
 const Chip: React.FC<{ children: React.ReactNode; color?: string }> = ({ children, color = '#F5EFE3' }) => (
-  <span className="inline-block px-2 py-0.5 rounded-md text-[11px] font-bold mr-1 mb-1" style={{ backgroundColor: color }}>{children}</span>
+  <span className="inline-block px-2 py-0.5 rounded-md text-[13px] font-bold mr-1 mb-1" style={{ backgroundColor: color }}>{children}</span>
 );
 
 // ── 內容區塊（onboarding 分頁用同一份內容） ──────────────────────
@@ -51,7 +51,7 @@ const PAGE_PICK = (
         <Chip>🤖 AI題材</Chip><Chip>🔥 高機會</Chip><Chip>📈 52週高</Chip><Chip>💪 RS強勢</Chip><Chip>🌱 營收穩健</Chip>
       </p>
       <p><b>燈亮越多＝歷史上越會漲</b>：0 燈只有 38% 會漲、3 燈 55%、<b>4 燈高達 75%</b>。卡片上的「亮燈 3/5」就是這個意思，不用背每盞燈的細節。</p>
-      <p className="text-[11px] text-[#8B7E68]">（其他常見指標如均線、MACD、法人買超也測過——單獨沒有優勢，為了不稀釋訊號已移除。這裡的每一盞燈都是實證留下來的。）</p>
+      <p className="text-[13px] text-[#8B7E68]">（其他常見指標如均線、MACD、法人買超也測過——單獨沒有優勢，為了不稀釋訊號已移除。這裡的每一盞燈都是實證留下來的。）</p>
     </Section>
   </>
 );
@@ -86,7 +86,7 @@ const PAGE_TOOLS = (
       <p>加 LINE 官方帳號並綁定 email 後：每天早上收<b>開盤早報</b>、傍晚收<b>收盤柴報</b>、大盤重挫即時警報；LINE 裡也能傳代碼或名字查股、跟汪汪聊天。</p>
     </Section>
     <Section icon="📜" title="免責聲明">
-      <p className="text-[11px] text-[#8B7E68]">本系統所有內容均為公開數據之彙整與統計分析，僅供參考，<b>不構成投資建議</b>。歷史勝率不代表未來表現，投資有風險，任何買賣決定與盈虧皆由使用者自行負責。請量力而為、謹慎理財。</p>
+      <p className="text-[13px] text-[#8B7E68]">本系統所有內容均為公開數據之彙整與統計分析，僅供參考，<b>不構成投資建議</b>。歷史勝率不代表未來表現，投資有風險，任何買賣決定與盈虧皆由使用者自行負責。請量力而為、謹慎理財。</p>
     </Section>
   </>
 );
@@ -114,10 +114,10 @@ export const GuideModal: React.FC<GuideModalProps> = ({ mode, onClose }) => {
           <img src="/logo.png" alt="" className="w-9 h-9 rounded-full ring-1 ring-[#E8973A]/40" />
           <div className="flex-1">
             <p className="text-[14px] font-black text-[#1A1A1A]">{isOnboarding ? `新手教學（${step + 1}/${PAGES.length}）` : '使用手冊'}</p>
-            <p className="text-[9px] font-bold text-[#B8A882]">{isOnboarding ? PAGES[step].title : '看不懂的時候隨時回來翻'}</p>
+            <p className="text-[12px] font-bold text-[#B8A882]">{isOnboarding ? PAGES[step].title : '看不懂的時候隨時回來翻'}</p>
           </div>
           {isOnboarding && (
-            <button onClick={onClose} className="text-[11px] font-bold text-slate-400 hover:text-[#1A1A1A] px-2 py-1">略過</button>
+            <button onClick={onClose} className="text-[13px] font-bold text-slate-400 hover:text-[#1A1A1A] px-2 py-1">略過</button>
           )}
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-[#1A1A1A]"><X size={18} /></button>
         </div>

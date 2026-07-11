@@ -72,15 +72,15 @@ export const GlobalAiReportModal: React.FC<GlobalAiReportModalProps> = ({ type, 
           <div className="w-full lg:w-[280px] bg-slate-900/50 p-8 border-r border-white/5 flex flex-col shrink-0">
             <div className="bg-rose-600/10 text-rose-500 p-3 rounded-2xl inline-flex mb-6 self-start border border-rose-500/20"><Terminal size={20} /></div>
             <h2 className="text-2xl font-black italic tracking-tighter text-white uppercase mb-1">Alpha Terminal</h2>
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-8">Intelligence Dossier</span>
+            <span className="text-[12px] font-black text-slate-500 uppercase tracking-[0.3em] mb-8">Intelligence Dossier</span>
 
             <div className="space-y-6 mt-auto">
               <div className="flex items-center gap-3">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">系統狀態: 在線</span>
+                <span className="text-[12px] font-black text-slate-400 uppercase tracking-widest">系統狀態: 在線</span>
               </div>
               <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-                <span className="text-[8px] font-black text-slate-500 uppercase block mb-1">報告日期</span>
+                <span className="text-[13px] font-black text-slate-500 uppercase block mb-1">報告日期</span>
                 <div className="text-sm font-black text-white italic">{format(new Date(), 'yyyy.MM.dd')}</div>
               </div>
             </div>
@@ -96,14 +96,14 @@ export const GlobalAiReportModal: React.FC<GlobalAiReportModalProps> = ({ type, 
                 </div>
                 <div className="text-center">
                   <p className="text-lg font-black italic text-white uppercase tracking-tighter mb-2">{statusText}</p>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">載入中... 請稍候</p>
+                  <p className="text-[12px] font-black text-slate-500 uppercase tracking-[0.4em]">載入中... 請稍候</p>
                 </div>
               </div>
             ) : report ? (
               <div className="animate-in fade-in slide-in-from-bottom-10 duration-1000">
                 <div className="flex items-center gap-3 mb-10 pb-6 border-b border-white/5">
                   <ShieldAlert size={18} className="text-rose-500" />
-                  <h3 className="text-[11px] font-black text-rose-500 uppercase tracking-[0.3em]">機密文件：ALPHA 情報中心 - 最新獲利指令</h3>
+                  <h3 className="text-[13px] font-black text-rose-500 uppercase tracking-[0.3em]">機密文件：ALPHA 情報中心 - 最新獲利指令</h3>
                 </div>
 
                 <div className="prose prose-invert max-w-none">
@@ -113,7 +113,7 @@ export const GlobalAiReportModal: React.FC<GlobalAiReportModalProps> = ({ type, 
                 </div>
 
                 <div className="mt-12 p-6 bg-rose-600/10 rounded-[2rem] border border-rose-500/20 text-center">
-                  <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">⚠️ 警語：Alpha 情報僅供策略參考，不保證獲利，投資請自負風險。</p>
+                  <p className="text-[12px] font-black text-rose-500 uppercase tracking-widest">⚠️ 警語：Alpha 情報僅供策略參考，不保證獲利，投資請自負風險。</p>
                 </div>
               </div>
             ) : null}

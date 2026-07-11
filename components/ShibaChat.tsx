@@ -116,7 +116,7 @@ ${history.slice(-6).map(m => `${m.role === 'user' ? '用戶' : '汪汪'}：${m.t
           className="fixed bottom-6 right-5 z-40 rounded-full shadow-xl ring-2 ring-[#E8973A]/60 hover:scale-105 transition-transform bg-white"
           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
           <img src="/logo.png" alt="汪汪管家" className="w-14 h-14 rounded-full" />
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#E8973A] rounded-full text-[9px] text-white font-black flex items-center justify-center">汪</span>
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#E8973A] rounded-full text-[12px] text-white font-black flex items-center justify-center">汪</span>
         </button>
       )}
 
@@ -128,7 +128,7 @@ ${history.slice(-6).map(m => `${m.role === 'user' ? '用戶' : '汪汪'}：${m.t
             <img src="/logo.png" alt="汪汪" className="w-10 h-10 rounded-full ring-1 ring-[#E8973A]/40" />
             <div className="flex-1 min-w-0">
               <p className="text-[14px] font-black text-[#1A1A1A]">汪汪管家</p>
-              <p className="text-[9px] font-bold text-[#B8A882]">數據彙整・非投資建議・下單你決定</p>
+              <p className="text-[12px] font-bold text-[#B8A882]">數據彙整・非投資建議・下單你決定</p>
             </div>
             <button onClick={() => setOpen(false)} className="p-2 text-slate-400 hover:text-[#1A1A1A]"><X size={20} /></button>
           </div>
@@ -146,7 +146,7 @@ ${history.slice(-6).map(m => `${m.role === 'user' ? '用戶' : '汪汪'}：${m.t
               </div>
             ))}
             {busy && (
-              <div className="flex items-center gap-2 text-[11px] text-[#B8A882] font-bold pl-9">
+              <div className="flex items-center gap-2 text-[13px] text-[#B8A882] font-bold pl-9">
                 <span className="animate-bounce">🐾</span> 汪汪翻資料中…
               </div>
             )}
@@ -157,7 +157,7 @@ ${history.slice(-6).map(m => `${m.role === 'user' ? '用戶' : '汪汪'}：${m.t
           <div className="px-4 pb-2 flex gap-2 flex-wrap">
             {QUICK.map(qk => (
               <button key={qk} onClick={() => ask(qk)} disabled={busy}
-                className="text-[11px] font-bold px-3 py-1.5 bg-[#F5EFE3] text-[#8B7E68] rounded-full border border-[#E8D9C0] hover:bg-[#E8973A] hover:text-white transition-colors disabled:opacity-50">
+                className="text-[13px] font-bold px-3 py-1.5 bg-[#F5EFE3] text-[#8B7E68] rounded-full border border-[#E8D9C0] hover:bg-[#E8973A] hover:text-white transition-colors disabled:opacity-50">
                 {qk}
               </button>
             ))}

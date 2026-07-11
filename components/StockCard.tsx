@@ -25,16 +25,17 @@ const resolveSignal = (signal: string, score: number, isHolding: boolean): strin
   return signal || 'AVOID';
 };
 
+// 2026-07 改版：訊號標籤改中文膠囊(朋友回饋英文小字看不懂)。判斷邏輯(resolveSignal/分支)完全不動,只改顯示文字與加膠囊底色
 const getSignalStyle = (rawSignal: string, score: number, isHolding: boolean, isStopped: boolean) => {
   const signal = resolveSignal(rawSignal, score, isHolding);
-  if (isStopped) return { signal, accentColor: '#C83232', accentWidth: '100%', labelText: 'STOP LOSS', labelColor: 'text-[#C83232]', action: '已跌破停損價，請立即出場保護資金', isActive: true };
+  if (isStopped) return { signal, accentColor: '#C83232', accentWidth: '100%', labelText: '🔴 跌破停損', labelColor: 'text-[#C83232]', pillBg: '#FBF1EF', action: '已跌破停損價，請立即出場保護資金', isActive: true };
   switch (signal) {
-    case 'STRONG_BUY': return { signal, accentColor: '#C83232', accentWidth: '100%', labelText: 'STRONG BUY', labelColor: 'text-[#C83232]', action: '技術面＋基本面雙軌高分，優先考慮進場', isActive: true };
-    case 'SWING_BUY':  return { signal, accentColor: '#C83232', accentWidth: '70%',  labelText: 'SWING BUY',  labelColor: 'text-[#C83232]', action: '趨勢向上＋基本面支撐，適合波段持有', isActive: true };
-    case 'DAYTRADE_BUY': return { signal, accentColor: '#C87832', accentWidth: '60%', labelText: 'DAYTRADE', labelColor: 'text-[#C87832]', action: '爆量高波動，適合短線操作，嚴守停損', isActive: true };
-    case 'WATCH': return { signal, accentColor: '#B8A882', accentWidth: '40%', labelText: 'WATCH', labelColor: 'text-[#9A8B6E]', action: '有潛力但尚未完全確認，等量能放大再考慮', isActive: false };
-    case 'HOLD':  return { signal, accentColor: '#2A2A2A', accentWidth: '50%', labelText: 'HOLDING', labelColor: 'text-[#2A2A2A]', action: '趨勢未破，繼續持有，注意停損位置', isActive: false };
-    default: return { signal, accentColor: '#D4C9B4', accentWidth: '15%', labelText: 'STANDBY', labelColor: 'text-[#B8A882]', action: '系統評估條件不足，此股不在推薦範圍', isActive: false };
+    case 'STRONG_BUY': return { signal, accentColor: '#C83232', accentWidth: '100%', labelText: '強力買進', labelColor: 'text-[#C83232]', pillBg: '#FBF1EF', action: '技術面＋基本面雙軌高分，優先考慮進場', isActive: true };
+    case 'SWING_BUY':  return { signal, accentColor: '#C83232', accentWidth: '70%',  labelText: '波段買進',  labelColor: 'text-[#C83232]', pillBg: '#FBF1EF', action: '趨勢向上＋基本面支撐，適合波段持有', isActive: true };
+    case 'DAYTRADE_BUY': return { signal, accentColor: '#C87832', accentWidth: '60%', labelText: '短線操作', labelColor: 'text-[#C87832]', pillBg: '#FBF4E9', action: '爆量高波動，適合短線操作，嚴守停損', isActive: true };
+    case 'WATCH': return { signal, accentColor: '#B8A882', accentWidth: '40%', labelText: '觀望', labelColor: 'text-[#9A8B6E]', pillBg: '#F2EFE7', action: '有潛力但尚未完全確認，等量能放大再考慮', isActive: false };
+    case 'HOLD':  return { signal, accentColor: '#2A2A2A', accentWidth: '50%', labelText: '持有中', labelColor: 'text-[#2A2A2A]', pillBg: '#EFEDE8', action: '趨勢未破，繼續持有，注意停損位置', isActive: false };
+    default: return { signal, accentColor: '#D4C9B4', accentWidth: '15%', labelText: '暫不推薦', labelColor: 'text-[#B8A882]', pillBg: '#F2EFE7', action: '系統評估條件不足，此股不在推薦範圍', isActive: false };
   }
 };
 
@@ -101,30 +102,29 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
   return (
     <div
       onClick={onSelect}
-      className="group relative bg-[#F8F4EE] border border-[#DDD5C4] cursor-pointer transition-all duration-200 hover:shadow-[0_4px_24px_rgba(0,0,0,0.10)] hover:-translate-y-0.5 overflow-hidden flex flex-col"
-      style={{ fontFamily: "'Georgia', 'Noto Serif TC', serif" }}
+      className="group relative bg-white rounded-2xl border border-[#EDE7DA] cursor-pointer transition-all duration-200 shadow-[0_1px_4px_rgba(45,45,45,0.04)] hover:shadow-[0_6px_24px_rgba(45,45,45,0.10)] hover:-translate-y-0.5 overflow-hidden flex flex-col"
     >
       {/* 頂部訊號強度色條 */}
-      <div className="h-[3px] w-full bg-[#EDE7DA]">
+      <div className="h-[4px] w-full bg-[#F2EDE3]">
         <div className="h-full transition-all duration-500" style={{ width: style.accentWidth, backgroundColor: style.accentColor }} />
       </div>
 
-      {/* 🏆 今日嚴選橫幅（金色左條，同雜誌語言）：名次＋亮了哪幾盞驗證燈 */}
+      {/* 🏆 今日嚴選橫幅：名次＋亮了哪幾盞驗證燈 */}
       {pickInfo && (
         <div className="flex items-stretch" style={{ backgroundColor: '#FBF5E4' }}>
-          <div className="w-[3px] shrink-0" style={{ backgroundColor: '#C8A032' }} />
-          <div className="px-3.5 py-2 flex items-baseline gap-2 flex-wrap min-w-0">
-            <span style={{ fontFamily: 'monospace', letterSpacing: '0.15em', color: '#A8842A' }} className="text-[10px] font-black">🏆 嚴選 #{pickInfo.rank}</span>
-            <span style={{ fontFamily: 'monospace', color: '#8B7E68' }} className="text-[9px]">亮燈 {pickInfo.conds.length}/5：{pickInfo.conds.join('·')}</span>
+          <div className="w-[4px] shrink-0" style={{ backgroundColor: '#C8A032' }} />
+          <div className="px-4 py-2 flex items-baseline gap-2 flex-wrap min-w-0">
+            <span className="text-[13px] font-black" style={{ color: '#A8842A' }}>🏆 嚴選 #{pickInfo.rank}</span>
+            <span className="text-[12px] font-medium" style={{ color: '#8B7E68' }}>亮燈 {pickInfo.conds.length}/5：{pickInfo.conds.join('·')}</span>
           </div>
         </div>
       )}
 
       {/* 停損警報 */}
       {isStopped && (
-        <div className="bg-[#C83232] text-white px-4 py-2 flex items-center gap-2">
-          <AlertTriangle size={12} className="animate-bounce" />
-          <span style={{ fontFamily: 'monospace', letterSpacing: '0.1em' }} className="text-[10px] font-bold uppercase">STOP LOSS — {stock.trade_stop}</span>
+        <div className="bg-[#C83232] text-white px-4 py-2.5 flex items-center gap-2">
+          <AlertTriangle size={14} className="animate-bounce" />
+          <span className="text-[13px] font-black">跌破停損 {stock.trade_stop} — 請認真考慮出場</span>
         </div>
       )}
 
@@ -135,43 +135,43 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               {typeof orderNo === 'number' && (
-                <span style={{ fontFamily: 'monospace' }} className="text-[9px] font-black text-[#C8A032]">#{orderNo}</span>
+                <span className="num text-[12px] font-black text-[#C8A032]">#{orderNo}</span>
               )}
-              <span style={{ fontFamily: 'monospace', letterSpacing: '0.12em' }} className="text-[9px] text-[#B8A882] font-bold uppercase">{stock.stock_code}</span>
-              {score >= 85 && <Sparkles size={10} className="text-[#C83232]" />}
+              <span className="mono-text text-[12px] text-[#A89878] font-bold tracking-wider">{stock.stock_code}</span>
+              {score >= 85 && <Sparkles size={12} className="text-[#C83232]" />}
             </div>
-            <h3 className="text-[26px] font-bold text-[#1A1A1A] leading-none tracking-tight" style={{ fontFamily: "'Georgia', serif" }}>
+            <h3 className="text-[24px] font-black text-[#1A1A1A] leading-none tracking-tight">
               {stock.stock_name}
             </h3>
             <div className="flex flex-wrap items-center gap-1.5 mt-2">
               {stock.ai_theme && (
-                <span className="inline-flex items-center gap-1 bg-[#1A1A1A] text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide">
-                  🤖 AI股 · {stock.ai_theme.split(',').slice(0, 2).join('·')}
+                <span className="inline-flex items-center gap-1 bg-[#1A1A1A] text-white text-[12px] font-bold px-2.5 py-1 rounded-full">
+                  🤖 {stock.ai_theme.split(',').slice(0, 2).join('·')}
                 </span>
               )}
               {stock.opportunity_label === '🔥 高機會' && (
-                <span className="inline-flex items-center bg-[#C83232] text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide">
+                <span className="inline-flex items-center bg-[#C83232] text-white text-[12px] font-bold px-2.5 py-1 rounded-full">
                   🔥 高機會
                 </span>
               )}
             </div>
           </div>
           <div className="text-right ml-4">
-            <div className="text-[28px] font-bold leading-none" style={{ fontFamily: 'monospace', color: isBuySignal ? '#C83232' : '#1A1A1A', fontVariantNumeric: 'tabular-nums' }}>
+            <div className="num text-[30px] font-bold leading-none" style={{ color: isBuySignal ? '#C83232' : '#1A1A1A' }}>
               {stock.close_price}
             </div>
             {stock.rt_live && (
               <div className="flex items-center justify-end gap-1 mt-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span style={{ fontFamily: 'monospace' }} className="text-[8px] font-bold text-emerald-600 uppercase tracking-wider">LIVE</span>
+                <span className="num text-[13px] font-bold text-emerald-600 tracking-wider">即時</span>
               </div>
             )}
             {stock.is_holding_item && (
-              <div className={`text-[11px] font-bold mt-1 flex items-center justify-end gap-1 ${isProfit ? 'text-[#C83232]' : 'text-emerald-700'}`}>
-                {isProfit ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                <span style={{ fontFamily: 'monospace' }}>{stock.profit_loss_ratio?.toFixed(1)}%</span>
+              <div className={`text-[13px] font-bold mt-1 flex items-center justify-end gap-1 ${isProfit ? 'text-[#C83232]' : 'text-emerald-700'}`}>
+                {isProfit ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                <span className="num">{stock.profit_loss_ratio?.toFixed(1)}%</span>
                 {typeof stock.profit_loss_amount === 'number' && Number.isFinite(stock.profit_loss_amount) && (
-                  <span style={{ fontFamily: 'monospace' }}>
+                  <span className="num">
                     （{stock.profit_loss_amount >= 0 ? '+' : '−'}{Math.abs(Math.round(stock.profit_loss_amount)).toLocaleString()}元）
                   </span>
                 )}
@@ -180,27 +180,27 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
           </div>
         </div>
 
-        <div className="border-t border-[#DDD5C4] mb-3" />
+        <div className="border-t border-[#F0EAE0] mb-3" />
 
         {/* ── 持股資訊：買價／損益平衡／股數／損益金額 ── */}
         {stock.is_holding_item && (
           <>
           <div className="grid grid-cols-4 gap-1.5 mb-2">
-            <div className="bg-[#F5F1E8] rounded-xl py-2 text-center">
-              <p className="text-[8px] font-bold text-[#B8A882] uppercase tracking-wider mb-0.5">買入價</p>
-              <p className="text-[13px] font-bold text-[#1A1A1A]" style={{ fontFamily: 'monospace' }}>{stock.buy_price ? Number(stock.buy_price).toFixed(2) : '—'}</p>
+            <div className="bg-[#F8F5EE] rounded-xl py-2.5 text-center">
+              <p className="text-[13px] font-bold text-[#A89878] mb-0.5">買入價</p>
+              <p className="num text-[15px] font-bold text-[#1A1A1A]">{stock.buy_price ? Number(stock.buy_price).toFixed(2) : '—'}</p>
             </div>
-            <div className="bg-[#F5F1E8] rounded-xl py-2 text-center">
-              <p className="text-[8px] font-bold text-[#B8A882] uppercase tracking-wider mb-0.5">損益平衡</p>
-              <p className="text-[13px] font-bold text-[#5A4E3C]" style={{ fontFamily: 'monospace' }}>{stock.breakeven_price ? Number(stock.breakeven_price).toFixed(2) : '—'}</p>
+            <div className="bg-[#F8F5EE] rounded-xl py-2.5 text-center">
+              <p className="text-[13px] font-bold text-[#A89878] mb-0.5">損益平衡</p>
+              <p className="num text-[15px] font-bold text-[#5A4E3C]">{stock.breakeven_price ? Number(stock.breakeven_price).toFixed(2) : '—'}</p>
             </div>
-            <div className="bg-[#F5F1E8] rounded-xl py-2 text-center">
-              <p className="text-[8px] font-bold text-[#B8A882] uppercase tracking-wider mb-0.5">股數</p>
-              <p className="text-[13px] font-bold text-[#1A1A1A]" style={{ fontFamily: 'monospace' }}>{stock.quantity ? Number(stock.quantity).toLocaleString() : '—'}</p>
+            <div className="bg-[#F8F5EE] rounded-xl py-2.5 text-center">
+              <p className="text-[13px] font-bold text-[#A89878] mb-0.5">股數</p>
+              <p className="num text-[15px] font-bold text-[#1A1A1A]">{stock.quantity ? Number(stock.quantity).toLocaleString() : '—'}</p>
             </div>
-            <div className="bg-[#F5F1E8] rounded-xl py-2 text-center">
-              <p className="text-[8px] font-bold text-[#B8A882] uppercase tracking-wider mb-0.5">損益額</p>
-              <p className={`text-[13px] font-bold ${isProfit ? 'text-[#C83232]' : 'text-emerald-700'}`} style={{ fontFamily: 'monospace' }}>
+            <div className="bg-[#F8F5EE] rounded-xl py-2.5 text-center">
+              <p className="text-[13px] font-bold text-[#A89878] mb-0.5">損益額</p>
+              <p className={`num text-[15px] font-bold ${isProfit ? 'text-[#C83232]' : 'text-emerald-700'}`}>
                 {typeof stock.profit_loss_amount === 'number' && Number.isFinite(stock.profit_loss_amount)
                   ? `${stock.profit_loss_amount >= 0 ? '+' : '−'}${Math.abs(Math.round(stock.profit_loss_amount)).toLocaleString()}`
                   : '—'}
@@ -209,18 +209,18 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
           </div>
           {/* 🛡️ 防雷警告（持股若是處置/注意/全額交割股）*/}
           {stock.risk_flag && (
-            <div className="mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-[10px] font-bold text-red-600">
+            <div className="mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-[12px] font-bold text-red-600">
               {stock.risk_flag}｜跌停鎖死時停損也賣不掉，單檔別重壓
             </div>
           )}
           {/* 🐕 GBrain 持股建議（每日更新，讓你買完不是沒人理）*/}
           {stock.gbrain_action && (
-            <div className="mb-3 px-3 py-2.5 bg-[#FBF6EC] border border-[#E8973A]/40 rounded-2xl">
+            <div className="mb-3 px-3.5 py-3 bg-[#FBF6EC] border border-[#E8973A]/40 rounded-2xl">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-[8px] font-black text-[#C87832] uppercase tracking-widest">🐕 GBrain 今日建議</span>
+                <span className="text-[13px] font-black text-[#C87832] tracking-wide">🐕 GBrain 今日建議</span>
               </div>
-              <p className="text-[12px] font-bold text-[#1A1A1A] leading-snug">{stock.gbrain_action}</p>
-              {stock.gbrain_reason && <p className="text-[10px] text-[#8B7E68] mt-1 leading-relaxed">{stock.gbrain_reason}</p>}
+              <p className="text-[14px] font-bold text-[#1A1A1A] leading-snug">{stock.gbrain_action}</p>
+              {stock.gbrain_reason && <p className="text-[12px] text-[#8B7E68] mt-1 leading-relaxed">{stock.gbrain_reason}</p>}
             </div>
           )}
           </>
@@ -228,19 +228,18 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
 
         {/* ── 🟢 白話結論 + 它的數字依據（看得出是算的，不是亂生成）── */}
         {verdict && (
-          <div className="mb-3 flex items-stretch" style={{ backgroundColor: verdict.bg }}>
-            <div className="w-[3px] shrink-0" style={{ backgroundColor: verdict.accent }} />
-            <div className="px-3.5 py-2.5 min-w-0">
-              <div className="flex items-baseline gap-2">
-                <span style={{ fontFamily: 'monospace', letterSpacing: '0.18em', color: verdict.accent }} className="text-[8px] font-bold uppercase">{verdict.tag}</span>
-                <span style={{ fontFamily: "'Georgia', 'Noto Serif TC', serif", color: verdict.fg }} className="text-[14px] font-bold leading-tight">{verdict.txt}</span>
+          <div className="mb-3 rounded-xl overflow-hidden flex items-stretch" style={{ backgroundColor: verdict.bg }}>
+            <div className="w-[4px] shrink-0" style={{ backgroundColor: verdict.accent }} />
+            <div className="px-4 py-3 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[13px] font-black px-2 py-0.5 rounded-full bg-white/70" style={{ color: verdict.accent }}>{verdict.tag}</span>
+                <span className="text-[16px] font-black leading-tight" style={{ color: verdict.fg }}>{verdict.txt}</span>
               </div>
               {verdict.reasons.length > 0 && (
-                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-1">
-                  <span style={{ fontFamily: 'monospace', color: verdict.accent }} className="text-[8px] opacity-70">依據</span>
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
                   {verdict.reasons.map((r, i) => (
-                    <span key={i} style={{ fontFamily: 'monospace', color: verdict.fg }} className="text-[9px] opacity-80">
-                      {i > 0 && <span className="opacity-40 mr-1.5">·</span>}{r}
+                    <span key={i} className="text-[12px] font-bold px-2.5 py-1 rounded-full bg-white/80" style={{ color: verdict.fg }}>
+                      {r}
                     </span>
                   ))}
                 </div>
@@ -251,81 +250,79 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
 
         {/* ── 訊號標籤 + 警告列（細節，給想懂的人）── */}
         <div className="flex items-center justify-between mb-3">
-          <span className={`text-[11px] font-bold tracking-[0.2em] uppercase ${style.labelColor}`} style={{ fontFamily: 'monospace' }}>
+          <span className={`text-[13px] font-black px-3 py-1 rounded-full ${style.labelColor}`} style={{ backgroundColor: style.pillBg }}>
             {style.labelText}
           </span>
           <div className="flex items-center gap-2">
-            <span style={{ fontFamily: 'monospace', letterSpacing: '0.08em' }} className="text-[9px] text-[#B8A882] uppercase">
-              {strategyMode === 'short' ? 'DAYTRADE' : 'SWING'}
+            <span className="text-[12px] font-bold text-[#A89878]">
+              {strategyMode === 'short' ? '當沖' : '波段'}
             </span>
             {hasAlert && (
-              <span style={{ fontFamily: 'monospace' }} className="text-[9px] font-bold text-[#C83232] border border-[#C83232]/40 px-2 py-0.5 uppercase tracking-widest animate-pulse">
+              <span className="text-[12px] font-bold text-[#C83232] bg-[#FBF1EF] rounded-full px-2.5 py-1 animate-pulse">
                 {stock.trade_label}
               </span>
             )}
             {!hasAlert && entryFeasibility === 'ok' && (
-              <span style={{ fontFamily: 'monospace' }} className="text-[9px] font-bold text-emerald-700 border border-emerald-400 px-2 py-0.5 uppercase tracking-widest">
+              <span className="text-[12px] font-bold text-emerald-700 bg-emerald-50 rounded-full px-2.5 py-1">
                 ✓ 可進場
               </span>
             )}
             {entryFeasibility === 'chasing' && (
-              <span style={{ fontFamily: 'monospace' }} className="text-[9px] font-bold text-[#C87832] border border-[#C87832]/40 px-2 py-0.5 uppercase tracking-widest">
+              <span className="text-[12px] font-bold text-[#C87832] bg-[#FBF4E9] rounded-full px-2.5 py-1">
                 △ 追高
               </span>
             )}
           </div>
         </div>
 
-        {/* ── 操作指令（斜體引文）── */}
-        <p className={`text-[12px] italic leading-relaxed mb-4 ${style.labelColor}`} style={{ fontFamily: "'Georgia', serif" }}>
+        {/* ── 操作指令 ── */}
+        <p className={`text-[13px] leading-relaxed mb-4 font-medium ${style.labelColor}`}>
           「{style.action}」
         </p>
 
-        <div className="border-t border-[#DDD5C4] mb-4" />
-
-        {/* ── 三格價格（雜誌欄位）── */}
-        <div className="grid grid-cols-3 gap-0">
-          <div className="pr-4 border-r border-[#DDD5C4]">
-            <div style={{ fontFamily: 'monospace', letterSpacing: '0.08em' }} className="text-[8px] text-[#B8A882] uppercase mb-1">TARGET</div>
-            <div style={{ fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }} className="text-[15px] font-bold text-emerald-700">{stock.trade_tp1 ?? '—'}</div>
+        {/* ── 三格價格 ── */}
+        <div className="grid grid-cols-3 gap-1.5">
+          <div className="bg-emerald-50/70 rounded-xl py-2.5 text-center">
+            <div className="text-[13px] font-bold text-emerald-700/70 mb-0.5">目標價</div>
+            <div className="num text-[17px] font-bold text-emerald-700">{stock.trade_tp1 ?? '—'}</div>
           </div>
-          <div className="px-4 border-r border-[#DDD5C4]">
-            <div style={{ fontFamily: 'monospace', letterSpacing: '0.08em' }} className="text-[8px] text-[#B8A882] uppercase mb-1">STOP</div>
-            <div style={{ fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }} className={`text-[15px] font-bold ${isStopped ? 'text-[#C83232]' : 'text-[#5A4E3C]'}`}>{stock.trade_stop ?? '—'}</div>
+          <div className={`rounded-xl py-2.5 text-center ${isStopped ? 'bg-[#FBF1EF]' : 'bg-[#F8F5EE]'}`}>
+            <div className={`text-[13px] font-bold mb-0.5 ${isStopped ? 'text-[#C83232]/70' : 'text-[#A89878]'}`}>停損價</div>
+            <div className={`num text-[17px] font-bold ${isStopped ? 'text-[#C83232]' : 'text-[#5A4E3C]'}`}>{stock.trade_stop ?? '—'}</div>
           </div>
-          <div className="pl-4">
-            <div style={{ fontFamily: 'monospace', letterSpacing: '0.08em' }} className="text-[8px] text-[#B8A882] uppercase mb-1">ENTRY</div>
-            <div style={{ fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }} className={`text-[15px] font-bold ${stock.trade_entry ? 'text-[#C87832]' : 'text-[#C8BA9A]'}`}>{stock.trade_entry ?? '—'}</div>
+          <div className="bg-[#FBF4E9] rounded-xl py-2.5 text-center">
+            <div className="text-[13px] font-bold text-[#C87832]/70 mb-0.5">建議進場</div>
+            <div className={`num text-[17px] font-bold ${stock.trade_entry ? 'text-[#C87832]' : 'text-[#C8BA9A]'}`}>{stock.trade_entry ?? '—'}</div>
           </div>
         </div>
       </div>
 
       {/* ── 版腳數據列 ── */}
-      <div className="border-t border-[#DDD5C4] px-6 py-3 flex items-center justify-between bg-[#F2EBE0]">
+      <div className="border-t border-[#F0EAE0] px-6 py-3 flex items-center justify-between bg-[#FBF9F4]">
         <div className="flex items-center gap-5">
           <div>
-            <div style={{ fontFamily: 'monospace', letterSpacing: '0.1em' }} className="text-[8px] text-[#B8A882] uppercase">VOL</div>
-            <div style={{ fontFamily: 'monospace' }} className={`text-[12px] font-bold ${(stock.vol_ratio ?? 0) > 1.5 ? 'text-emerald-700' : 'text-[#5A4E3C]'}`}>{stock.vol_ratio?.toFixed(1)}×</div>
+            <div className="text-[13px] font-bold text-[#A89878]">量能</div>
+            <div className={`num text-[14px] font-bold ${(stock.vol_ratio ?? 0) > 1.5 ? 'text-emerald-700' : 'text-[#5A4E3C]'}`}>{stock.vol_ratio?.toFixed(1)}×</div>
           </div>
-          <div className="w-px h-6 bg-[#DDD5C4]" />
+          <div className="w-px h-7 bg-[#EDE7DA]" />
           <div>
-            <div style={{ fontFamily: 'monospace', letterSpacing: '0.1em' }} className="text-[8px] text-[#B8A882] uppercase">SCORE</div>
-            <div style={{ fontFamily: 'monospace' }} className="text-[12px] font-bold text-[#C83232]">{score}</div>
+            <div className="text-[13px] font-bold text-[#A89878]">技術分</div>
+            <div className="num text-[14px] font-bold text-[#C83232]">{score}</div>
           </div>
           {stock.news_sentiment && stock.news_sentiment !== 'NEUTRAL' && (
             <>
-              <div className="w-px h-6 bg-[#DDD5C4]" />
+              <div className="w-px h-7 bg-[#EDE7DA]" />
               <div>
-                <div style={{ fontFamily: 'monospace', letterSpacing: '0.1em' }} className="text-[8px] text-[#B8A882] uppercase">NEWS</div>
-                <div style={{ fontFamily: 'monospace' }} className={`text-[13px] font-bold ${stock.news_sentiment === 'NEGATIVE' ? 'text-emerald-700' : stock.news_sentiment?.includes('POSITIVE') ? 'text-[#C83232]' : 'text-[#C87832]'}`}>
+                <div className="text-[13px] font-bold text-[#A89878]">新聞</div>
+                <div className={`text-[14px] font-bold ${stock.news_sentiment === 'NEGATIVE' ? 'text-emerald-700' : stock.news_sentiment?.includes('POSITIVE') ? 'text-[#C83232]' : 'text-[#C87832]'}`}>
                   {stock.news_sentiment === 'POSITIVE' ? '▲' : stock.news_sentiment === 'SLIGHT_POSITIVE' ? '△' : stock.news_sentiment === 'NEGATIVE' ? '▼' : '▽'}
                 </div>
               </div>
             </>
           )}
         </div>
-        <button className="text-[9px] font-bold tracking-[0.15em] uppercase text-[#B8A882] hover:text-[#C83232] transition-colors group-hover:text-[#C83232]" style={{ fontFamily: 'monospace' }}>
-          Detail →
+        <button className="text-[13px] font-bold text-[#A89878] hover:text-[#C83232] transition-colors group-hover:text-[#C83232]">
+          詳情 →
         </button>
       </div>
     </div>

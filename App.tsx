@@ -508,7 +508,7 @@ const App: React.FC = () => {
         <div className="text-center mb-10">
           <img src="/logo.png" alt="Shiba Analyst" className="w-20 h-20 rounded-2xl mb-4 mx-auto shadow-md ring-1 ring-slate-100" />
           <h1 className="serif-text text-3xl font-bold tracking-tight text-[#1A1A1A]">Alpha Ledger</h1>
-          <p className="text-[10px] text-slate-400 uppercase tracking-[0.3em] mt-1 font-bold">智慧投資審計系統</p>
+          <p className="text-[12px] text-slate-400 uppercase tracking-[0.3em] mt-1 font-bold">智慧投資審計系統</p>
         </div>
 
         {/* 登入 / 註冊 切換 Tab */}
@@ -530,7 +530,7 @@ const App: React.FC = () => {
         {/* 表單 */}
         <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="space-y-3">
           <div className="space-y-1">
-            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 tracking-widest">
+            <label className="text-[12px] font-bold text-slate-400 uppercase ml-1 tracking-widest">
               {authMode === 'login' ? 'Terminal ID' : '電子信箱'}
             </label>
             <input
@@ -540,7 +540,7 @@ const App: React.FC = () => {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 tracking-widest">
+            <label className="text-[12px] font-bold text-slate-400 uppercase ml-1 tracking-widest">
               {authMode === 'login' ? 'Access Key' : '設定密碼'}
             </label>
             <input
@@ -553,7 +553,7 @@ const App: React.FC = () => {
           {/* 註冊專用：確認密碼 */}
           {authMode === 'register' && (
             <div className="space-y-1">
-              <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 tracking-widest">確認密碼</label>
+              <label className="text-[12px] font-bold text-slate-400 uppercase ml-1 tracking-widest">確認密碼</label>
               <input
                 type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required
                 placeholder="再次輸入密碼"
@@ -586,7 +586,7 @@ const App: React.FC = () => {
         </form>
 
         {/* 切換提示 */}
-        <p className="text-center text-[11px] text-slate-400 mt-6">
+        <p className="text-center text-[13px] text-slate-400 mt-6">
           {authMode === 'login' ? (
             <>還沒有帳號？<button onClick={() => { setAuthMode('register'); setAuthError(''); }} className="text-[#E8973A] font-bold hover:underline">立即註冊</button></>
           ) : (
@@ -608,22 +608,22 @@ const App: React.FC = () => {
       {/* ── 問題5：大盤空頭全寬警告橫幅 ── */}
       {isBearMarket && (
         <div className="w-full bg-[#E8973A] text-white px-6 py-3 flex items-center justify-center gap-3 text-center">
-          <AlertTriangle size={16} className="shrink-0 animate-pulse" />
-          <p className="text-xs font-bold tracking-wide">
+          <AlertTriangle size={18} className="shrink-0 animate-pulse" />
+          <p className="text-[14px] font-black tracking-wide">
             🔴 大盤空頭警戒中 — 系統已封鎖新買進訊號，請專注管理現有庫存停損
           </p>
-          <AlertTriangle size={16} className="shrink-0 animate-pulse" />
+          <AlertTriangle size={18} className="shrink-0 animate-pulse" />
         </div>
       )}
 
       {/* ── 今日大盤急跌警示（趨勢多頭但單日重挫，保護新手別追高）── */}
       {showCrashBanner && (
         <div className={`w-full px-6 py-3 flex items-center justify-center gap-3 text-center ${dayCaution === 'CRASH' ? 'bg-rose-600 text-white' : 'bg-amber-500 text-white'}`}>
-          <AlertTriangle size={16} className="shrink-0 animate-pulse" />
-          <p className="text-xs font-bold tracking-wide">
+          <AlertTriangle size={18} className="shrink-0 animate-pulse" />
+          <p className="text-[14px] font-black tracking-wide">
             {processedData.marketCautionMsg || `大盤今日下跌 ${processedData.marketChangePct?.toFixed(1)}%，雖然中期仍是多頭，但今天先別追高`}
           </p>
-          <AlertTriangle size={16} className="shrink-0 animate-pulse" />
+          <AlertTriangle size={18} className="shrink-0 animate-pulse" />
         </div>
       )}
 
@@ -646,7 +646,8 @@ const App: React.FC = () => {
             <h1 className="serif-text text-xl font-bold tracking-tighter">Alpha Ledger</h1>
           </div>
           <div className="h-4 w-px bg-slate-200"></div>
-          <div className="flex gap-8">
+          {/* 膠囊分頁(參考案例的「總覽/產業鏈」語言)：選中項填色 */}
+          <div className="flex gap-1 bg-[#F5F1E8] p-1 rounded-full">
             {[
               { id: 'elite', label: '獲利雷達', icon: Compass },
               { id: 'ai', label: '🤖 AI 特區', icon: Cpu },
@@ -654,15 +655,15 @@ const App: React.FC = () => {
               { id: 'portfolio', label: `資產帳冊${processedData.stopLossAlerts.length > 0 ? ` 🔴${processedData.stopLossAlerts.length}` : ''}`, icon: Wallet }
             ].map(v => (
               <button key={v.id} onClick={() => setActiveView(v.id as ViewMode)}
-                className={`flex items-center gap-2 text-[11px] font-bold transition-all ${activeView === v.id ? 'text-[#E8973A]' : 'text-slate-400 hover:text-slate-600'}`}>
-                <v.icon size={14} /> {v.label}
+                className={`flex items-center gap-1.5 text-[13px] font-bold px-4 py-2 rounded-full transition-all ${activeView === v.id ? 'bg-[#E8973A] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                <v.icon size={15} /> {v.label}
               </button>
             ))}
           </div>
         </div>
         <div className="flex items-center gap-4">
           {/* 大盤狀態 badge：趨勢 + 今日漲跌（兩層資訊一眼看懂）*/}
-          <div className={`px-3 py-1.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5 ${
+          <div className={`px-3.5 py-2 rounded-full text-[13px] font-bold border flex items-center gap-1.5 ${
             isBearMarket ? 'bg-red-50 text-red-600 border-red-200' :
             processedData.marketRegime === 'BULL' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
             'bg-yellow-50 text-yellow-600 border-yellow-200'
@@ -674,28 +675,28 @@ const App: React.FC = () => {
               </span>
             )}
           </div>
-          <button onClick={() => setIsGlobalReportOpen(true)} className="bg-[#E8973A] text-white px-5 py-2.5 rounded-full text-[10px] font-bold flex items-center gap-2 hover:bg-[#cf8429] transition-all shadow-lg shadow-amber-900/10">
-            <Cpu size={14} /> AI 深度獲利報告
+          <button onClick={() => setIsGlobalReportOpen(true)} className="bg-[#E8973A] text-white px-5 py-2.5 rounded-full text-[13px] font-bold flex items-center gap-2 hover:bg-[#cf8429] transition-all shadow-lg shadow-amber-900/10">
+            <Cpu size={15} /> AI 深度獲利報告
           </button>
           {/* 匯出報表 */}
           <div className="relative">
-            <button onClick={() => setIsExportOpen(!isExportOpen)} className="bg-[#1A1A1A] text-white px-5 py-2.5 rounded-full text-[10px] font-bold flex items-center gap-2 hover:bg-slate-700 transition-all">
-              <FileDown size={14} /> 匯出報表
+            <button onClick={() => setIsExportOpen(!isExportOpen)} className="bg-[#1A1A1A] text-white px-5 py-2.5 rounded-full text-[13px] font-bold flex items-center gap-2 hover:bg-slate-700 transition-all">
+              <FileDown size={15} /> 匯出報表
             </button>
             {isExportOpen && (
-              <div className="absolute right-0 top-12 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 w-52 z-[300]">
+              <div className="absolute right-0 top-12 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 w-56 z-[300]">
                 <button onClick={() => handleExport('pdf')} disabled={isExporting} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-left disabled:opacity-50">
                   <FileText size={16} className="text-[#E8973A]" />
                   <div>
-                    <p className="text-xs font-bold">專業投資日報 PDF</p>
-                    <p className="text-[9px] text-slate-400">完整排版，適合存檔/分享</p>
+                    <p className="text-[14px] font-bold">專業投資日報 PDF</p>
+                    <p className="text-[12px] text-slate-400">完整排版，適合存檔/分享</p>
                   </div>
                 </button>
                 <button onClick={() => handleExport('excel')} disabled={isExporting} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-left disabled:opacity-50">
                   <FileSpreadsheet size={16} className="text-emerald-600" />
                   <div>
-                    <p className="text-xs font-bold">Excel 完整數據</p>
-                    <p className="text-[9px] text-slate-400">精選/持股/AI報告 三張工作表</p>
+                    <p className="text-[14px] font-bold">Excel 完整數據</p>
+                    <p className="text-[12px] text-slate-400">精選/持股/AI報告 三張工作表</p>
                   </div>
                 </button>
               </div>
@@ -718,13 +719,13 @@ const App: React.FC = () => {
             <button key={item.id} onClick={() => setActiveView(item.id as ViewMode)}
               className={`flex-1 flex flex-col items-center gap-1 py-1 transition-all active:scale-90 ${activeView === item.id ? 'text-white' : 'text-slate-500'}`}>
               <item.icon size={22} strokeWidth={activeView === item.id ? 2.5 : 2} />
-              <span className="text-[9px] font-bold tracking-tighter">{item.label}</span>
+              <span className="text-[13px] font-bold">{item.label}</span>
             </button>
           ))}
           <div className="w-px h-8 bg-white/10 mx-2"></div>
           <button onClick={() => { setGlobalReportType('daily'); setIsGlobalReportOpen(true); }} className="flex-1 flex flex-col items-center gap-1 text-[#E8973A] active:scale-90">
             <Zap size={22} fill="currentColor" />
-            <span className="text-[9px] font-bold tracking-tighter">AI 報告</span>
+            <span className="text-[13px] font-bold">AI 報告</span>
           </button>
         </div>
       </div>
@@ -737,10 +738,10 @@ const App: React.FC = () => {
             <span className="serif-text text-lg font-bold tracking-tight text-[#1A1A1A]">Alpha Ledger</span>
           </div>
           <div>
-            <h2 className="serif-text text-4xl lg:text-5xl font-bold tracking-tight mb-2">
+            <h2 className="text-4xl lg:text-5xl font-black tracking-tight mb-2">
               {activeView === 'elite' ? '精選雷達' : activeView === 'ai' ? 'AI 特區' : activeView === 'full' ? '市場審查' : '資產帳冊'}
             </h2>
-            <p className="text-[11px] text-[#E8973A] font-black uppercase tracking-[0.4em]">
+            <p className="text-[13px] text-[#E8973A] font-black tracking-[0.3em] uppercase">
               {activeView === 'elite' ? 'Elite Conviction List' : activeView === 'ai' ? 'AI Sector Radar' : activeView === 'full' ? 'Comprehensive Audit' : 'Asset Management'}
             </p>
           </div>
@@ -749,11 +750,11 @@ const App: React.FC = () => {
           </div>
           {/* 手機版匯出按鈕 */}
           <div className="lg:hidden flex gap-2 mt-4">
-            <button onClick={() => handleExport('pdf')} disabled={isExporting} className="flex-1 bg-[#1A1A1A] text-white py-3 rounded-2xl text-[10px] font-bold flex items-center justify-center gap-2 disabled:opacity-50">
-              <FileText size={14} /> 匯出 PDF 日報
+            <button onClick={() => handleExport('pdf')} disabled={isExporting} className="flex-1 bg-[#1A1A1A] text-white py-3 rounded-2xl text-[13px] font-bold flex items-center justify-center gap-2 disabled:opacity-50">
+              <FileText size={15} /> 匯出 PDF 日報
             </button>
-            <button onClick={() => handleExport('excel')} disabled={isExporting} className="flex-1 bg-white border border-slate-200 text-[#1A1A1A] py-3 rounded-2xl text-[10px] font-bold flex items-center justify-center gap-2 disabled:opacity-50">
-              <FileSpreadsheet size={14} className="text-emerald-600" /> 匯出 Excel
+            <button onClick={() => handleExport('excel')} disabled={isExporting} className="flex-1 bg-white border border-slate-200 text-[#1A1A1A] py-3 rounded-2xl text-[13px] font-bold flex items-center justify-center gap-2 disabled:opacity-50">
+              <FileSpreadsheet size={15} className="text-emerald-600" /> 匯出 Excel
             </button>
           </div>
         </header>
@@ -762,9 +763,9 @@ const App: React.FC = () => {
           <MarketBriefing brief={processedData.marketBrief} loading={state.loading} marketRegime={processedData.marketRegime} />
         )}
 
-        <div className="flex gap-2 mb-10 bg-slate-100/50 p-1.5 rounded-2xl w-fit mx-auto lg:mx-0 border border-slate-100 shadow-inner">
-          <button onClick={() => setStrategy('short')} className={`px-8 py-3 rounded-xl text-[11px] font-bold transition-all ${strategy === 'short' ? 'bg-[#E8973A] text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>當沖雷達</button>
-          <button onClick={() => setStrategy('long')} className={`px-8 py-3 rounded-xl text-[11px] font-bold transition-all ${strategy === 'long' ? 'bg-[#1A1A1A] text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>波段佈局</button>
+        <div className="flex gap-1 mb-10 bg-white p-1.5 rounded-full w-fit mx-auto lg:mx-0 border border-[#EDE7DA] shadow-sm">
+          <button onClick={() => setStrategy('short')} className={`px-8 py-2.5 rounded-full text-[14px] font-bold transition-all ${strategy === 'short' ? 'bg-[#E8973A] text-white shadow' : 'text-slate-400 hover:text-slate-600'}`}>當沖雷達</button>
+          <button onClick={() => setStrategy('long')} className={`px-8 py-2.5 rounded-full text-[14px] font-bold transition-all ${strategy === 'long' ? 'bg-[#1A1A1A] text-white shadow' : 'text-slate-400 hover:text-slate-600'}`}>波段佈局</button>
         </div>
 
         {/* 🧠 GBrain 體檢：高機會預測「自驗命中率」近月 vs 前月趨勢 → 看得出系統有沒有越來越聰明 */}
@@ -776,21 +777,21 @@ const App: React.FC = () => {
           const arrow = up ? '↗' : down ? '↘' : '→';
           const col = up ? '#C83232' : down ? '#10b981' : '#8B8270';
           return (
-            <div className="mb-8 -mt-4 flex items-center gap-3 px-4 py-3 bg-[#FBF6EC] border border-[#E8973A]/30 rounded-2xl">
-              <span className="text-[16px]">🧠</span>
-              <div className="min-w-0">
+            <div className="mb-8 -mt-4 flex items-center gap-4 px-5 py-4 bg-white border border-[#EDE7DA] rounded-2xl shadow-[0_1px_4px_rgba(45,45,45,0.04)]">
+              <div className="w-11 h-11 rounded-xl bg-[#FBF6EC] flex items-center justify-center text-[20px] shrink-0">🧠</div>
+              <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className="text-[11px] font-black text-[#1A1A1A] tracking-wide">GBrain 體檢 · 高機會命中率</span>
+                  <span className="text-[14px] font-black text-[#1A1A1A]">GBrain 體檢 · 高機會命中率</span>
                   {hasTrend ? (
-                    <span className="text-[12px] font-bold" style={{ fontFamily: 'monospace', color: col }}>
+                    <span className="num text-[17px] font-black" style={{ color: col }}>
                       前月 {g.wr_prev}% {arrow} 近月 {g.wr_recent}%
                     </span>
                   ) : (
-                    <span className="text-[12px] font-bold" style={{ fontFamily: 'monospace', color: '#8B8270' }}>累計 {g.wr}%（趨勢待累積）</span>
+                    <span className="num text-[17px] font-black" style={{ color: '#8B8270' }}>累計 {g.wr}%</span>
                   )}
-                  <span className="text-[10px] text-[#B8A882]" style={{ fontFamily: 'monospace' }}>· 累計 {g.n} 次驗證</span>
+                  <span className="num text-[12px] text-[#A89878]">· {g.n} 次驗證</span>
                 </div>
-                <p className="text-[9px] text-[#8B7E68] mt-0.5 leading-tight">
+                <p className="text-[12px] text-[#8B7E68] mt-1 leading-snug">
                   GBrain 自己標的「🔥 高機會」事後對帳命中率。{up ? '近月在進步 📈' : down ? '近月退步，演算法會自動調權修正' : '持平累積中'}。非投資建議。
                 </p>
               </div>
@@ -809,8 +810,8 @@ const App: React.FC = () => {
             <div className="mb-8 grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div className="lg:col-span-2 bg-[#F8F4EE] border border-[#DDD5C4] rounded-3xl p-6 lg:p-8">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-[11px] font-bold text-[#B8A882] uppercase tracking-widest">總資產損益</span>
-                  <span className="text-[10px] text-[#B8A882] font-bold">{sm.count} 檔持股</span>
+                  <span className="text-[13px] font-bold text-[#B8A882] uppercase tracking-widest">總資產損益</span>
+                  <span className="text-[12px] text-[#B8A882] font-bold">{sm.count} 檔持股</span>
                 </div>
                 <div className="flex items-baseline gap-2 flex-wrap">
                   <span className="text-4xl lg:text-5xl font-bold leading-none" style={{ fontFamily: 'monospace', color: plColor }}>
@@ -821,17 +822,17 @@ const App: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-3 mt-5 pt-4 border-t border-[#DDD5C4]">
                   <div className="bg-white/70 rounded-2xl py-2.5 px-4">
-                    <p className="text-[9px] text-[#B8A882] font-bold uppercase tracking-wider mb-0.5">總成本</p>
+                    <p className="text-[12px] text-[#B8A882] font-bold uppercase tracking-wider mb-0.5">總成本</p>
                     <p className="text-base font-bold text-[#1A1A1A]" style={{ fontFamily: 'monospace' }}>{fmt(sm.totalCost)}</p>
                   </div>
                   <div className="bg-white/70 rounded-2xl py-2.5 px-4">
-                    <p className="text-[9px] text-[#B8A882] font-bold uppercase tracking-wider mb-0.5">總市值</p>
+                    <p className="text-[12px] text-[#B8A882] font-bold uppercase tracking-wider mb-0.5">總市值</p>
                     <p className="text-base font-bold text-[#1A1A1A]" style={{ fontFamily: 'monospace' }}>{fmt(sm.totalValue)}</p>
                   </div>
                 </div>
               </div>
               <div className="bg-[#F8F4EE] border border-[#DDD5C4] rounded-3xl p-4">
-                <p className="text-[11px] font-bold text-[#B8A882] uppercase tracking-widest mb-1 px-2">持股配置 · 市值占比</p>
+                <p className="text-[13px] font-bold text-[#B8A882] uppercase tracking-widest mb-1 px-2">持股配置 · 市值占比</p>
                 <ResponsiveContainer width="100%" height={170}>
                   <PieChart>
                     <Pie data={sm.allocation} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={42} outerRadius={70} paddingAngle={2}>
@@ -869,7 +870,7 @@ const App: React.FC = () => {
             <div className="mb-12">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-4">
                 <h3 className="text-[15px] font-black text-[#1A1A1A] tracking-wide">🏆 今日嚴選</h3>
-                <span className="text-[10px] font-bold text-slate-400">可進場＋亮燈≥3 才入選 · 精兵五燈制（0燈38%→3燈55%→4燈75%，全部歷史實證）</span>
+                <span className="text-[12px] font-bold text-slate-400">可進場＋亮燈≥3 才入選 · 精兵五燈制（0燈38%→3燈55%→4燈75%，全部歷史實證）</span>
               </div>
               {picks.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -882,12 +883,12 @@ const App: React.FC = () => {
               ) : (
                 <div className="py-10 text-center bg-white rounded-[2rem] border border-slate-100">
                   <p className="serif-text text-lg text-slate-300 italic mb-1">今日沒有「可進場＋亮燈≥3」的標的</p>
-                  <p className="text-[10px] font-bold text-slate-400">寧缺勿濫——條件不夠就先別出手，等好球再揮棒</p>
+                  <p className="text-[12px] font-bold text-slate-400">寧缺勿濫——條件不夠就先別出手，等好球再揮棒</p>
                 </div>
               )}
               <div className="flex items-baseline gap-3 mt-10 mb-2">
                 <h3 className="text-[13px] font-black text-slate-500 tracking-wide">完整觀察清單</h3>
-                <span className="text-[10px] font-bold text-slate-400">排序：可進場 → 亮燈數 → 分數（追高的排最後）</span>
+                <span className="text-[12px] font-bold text-slate-400">排序：可進場 → 亮燈數 → 分數（追高的排最後）</span>
               </div>
             </div>
           );
@@ -897,7 +898,7 @@ const App: React.FC = () => {
           {activeView === 'portfolio' && (
             <div onClick={() => setIsManualAdding(!isManualAdding)} className="group relative rounded-[2.5rem] border-2 border-dashed border-slate-200 p-8 flex flex-col items-center justify-center gap-3 transition-all hover:bg-white hover:border-[#1A1A1A] cursor-pointer h-full min-h-[220px]">
               <div className="p-4 bg-slate-50 rounded-full text-slate-300 group-hover:text-[#1A1A1A] group-hover:bg-slate-100 transition-all shadow-sm"><Plus size={32} /></div>
-              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest group-hover:text-[#1A1A1A]">登錄新資產</span>
+              <span className="text-[13px] font-black text-slate-400 uppercase tracking-widest group-hover:text-[#1A1A1A]">登錄新資產</span>
             </div>
           )}
 
@@ -923,7 +924,7 @@ const App: React.FC = () => {
             return code.includes(q) || name.includes(q);
           }).length === 0 && (historyResults.length > 0 ? (
             <>
-              <div className="col-span-full px-5 py-3 bg-amber-50 border border-amber-200 rounded-2xl text-[11px] font-bold text-amber-700">
+              <div className="col-span-full px-5 py-3 bg-amber-50 border border-amber-200 rounded-2xl text-[13px] font-bold text-amber-700">
                 📅 「{marketSearch.trim()}」今天雷達沒掃到——以下是最近一次的分析紀錄（分析日期：{historyResults[0]?.analysis_date}），股價已換成最新即時價
               </div>
               {historyResults.map(r => {
@@ -938,14 +939,14 @@ const App: React.FC = () => {
           ) : (
             <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-slate-100">
               <p className="serif-text text-xl text-slate-300 italic mb-2">找不到「{marketSearch.trim()}」</p>
-              <p className="text-[10px] font-bold text-slate-400 leading-relaxed">歷史資料庫也沒有這檔的分析紀錄，<br/>可能代碼/名稱有誤，或系統從未掃到過它。</p>
+              <p className="text-[12px] font-bold text-slate-400 leading-relaxed">歷史資料庫也沒有這檔的分析紀錄，<br/>可能代碼/名稱有誤，或系統從未掃到過它。</p>
             </div>
           ))}
 
           {activeView === 'ai' && processedData.aiList.length === 0 && !state.loading && (
             <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border border-slate-100">
               <p className="serif-text text-2xl text-slate-300 italic mb-2">今日 AI 題材股整理中</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">每日掃描後更新</p>
+              <p className="text-[12px] font-bold text-slate-400 uppercase tracking-widest">每日掃描後更新</p>
             </div>
           )}
 
@@ -954,7 +955,7 @@ const App: React.FC = () => {
             <div className="col-span-full mt-6">
               <div className="flex items-baseline gap-3 mb-4">
                 <h3 className="text-[13px] font-black text-slate-500 tracking-wide">👀 願望清單</h3>
-                <span className="text-[10px] font-bold text-slate-400">觀察中但尚未買入的股票 · 點卡片可加入帳冊</span>
+                <span className="text-[12px] font-bold text-slate-400">觀察中但尚未買入的股票 · 點卡片可加入帳冊</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {processedData.watchlistDisplay.map(s => (
@@ -964,12 +965,12 @@ const App: React.FC = () => {
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <p className="text-[11px] font-bold text-slate-400">{(s.stock_code || '').replace(/\.(TW|TWO)$/i, '')}</p>
+                        <p className="text-[13px] font-bold text-slate-400">{(s.stock_code || '').replace(/\.(TW|TWO)$/i, '')}</p>
                         <p className="text-[15px] font-black text-[#1A1A1A] leading-tight">{s.stock_name}</p>
                       </div>
                       <button
                         onClick={e => { e.stopPropagation(); handleToggleWatchlist(s as DailyAnalysis); }}
-                        className="text-[10px] font-bold text-slate-400 hover:text-rose-500 px-2 py-1 rounded-lg hover:bg-rose-50 transition-all"
+                        className="text-[12px] font-bold text-slate-400 hover:text-rose-500 px-2 py-1 rounded-lg hover:bg-rose-50 transition-all"
                       >移除</button>
                     </div>
                     <div className="flex items-center gap-3">
@@ -977,7 +978,7 @@ const App: React.FC = () => {
                         {s.close_price > 0 ? s.close_price : '--'}
                       </span>
                       {s.trade_signal && s.trade_signal !== 'UNKNOWN' && (
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md ${
+                        <span className={`text-[12px] font-bold px-2 py-0.5 rounded-md ${
                           s.trade_signal === 'STRONG_BUY' || s.trade_signal === 'SWING_BUY' ? 'bg-red-50 text-red-600' :
                           s.trade_signal === 'SELL_STOP' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-500'
                         }`}>
@@ -985,7 +986,7 @@ const App: React.FC = () => {
                         </span>
                       )}
                       {processedData.litMap[normCode(s.stock_code)]?.length > 0 && (
-                        <span className="text-[9px] font-bold text-[#E8973A]">
+                        <span className="text-[12px] font-bold text-[#E8973A]">
                           亮燈 {processedData.litMap[normCode(s.stock_code)].length}/5
                         </span>
                       )}
@@ -999,7 +1000,7 @@ const App: React.FC = () => {
           {activeView === 'elite' && processedData.eliteList.length === 0 && !state.loading && (
             <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border border-slate-100">
               <p className="serif-text text-2xl text-slate-300 italic mb-2">今日市場尚未捕捉到精銳標的</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">等待量能噴發或趨勢成形</p>
+              <p className="text-[12px] font-bold text-slate-400 uppercase tracking-widest">等待量能噴發或趨勢成形</p>
             </div>
           )}
         </div>
@@ -1012,7 +1013,7 @@ const App: React.FC = () => {
             <div className="flex justify-between items-center mb-8">
               <div>
                 <h3 className="serif-text text-2xl font-bold text-[#1A1A1A]">登錄資產</h3>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Manual Audit Registration</p>
+                <p className="text-[12px] font-black text-slate-400 uppercase tracking-widest">Manual Audit Registration</p>
               </div>
               <button onClick={() => setIsManualAdding(false)} className="p-2 hover:bg-slate-50 rounded-full"><X size={24} className="text-slate-400" /></button>
             </div>
@@ -1024,7 +1025,7 @@ const App: React.FC = () => {
               {(manualSearchResults.length > 0 ? manualSearchResults : processedData.searchResults).map(s => (
                 <div key={s.id} onClick={() => { setSelectedStock(s); setIsManualAdding(false); setSearchQuery(''); }} className="flex items-center justify-between p-5 bg-white hover:bg-slate-50 rounded-2xl cursor-pointer transition-all border border-slate-100 hover:border-[#1A1A1A] group">
                   <div>
-                    <span className="text-[10px] font-bold text-slate-300 block tracking-widest mb-0.5 group-hover:text-slate-400">{s.stock_code}</span>
+                    <span className="text-[12px] font-bold text-slate-300 block tracking-widest mb-0.5 group-hover:text-slate-400">{s.stock_code}</span>
                     <span className="text-lg font-bold text-[#1A1A1A]">{s.stock_name}</span>
                   </div>
                   <div className="bg-slate-50 p-2 rounded-xl group-hover:bg-[#1A1A1A] group-hover:text-white transition-all">
@@ -1044,7 +1045,7 @@ const App: React.FC = () => {
                   return (
                     <div className="p-5 bg-rose-50 border border-rose-200 rounded-2xl">
                       <span className="text-sm font-bold text-rose-600 block mb-1">⚠️ 請輸入「股票代碼」，不是名稱</span>
-                      <p className="text-[11px] text-rose-500 leading-relaxed">
+                      <p className="text-[13px] text-rose-500 leading-relaxed">
                         你打的是「{q}」。請改打<span className="font-bold">數字代碼</span>（例：集盛＝<span className="font-bold">1455</span>、台積電＝<span className="font-bold">2330</span>）。<br/>
                         系統要靠代碼才能分析、抓現價；打名字會變成「資料不足」。
                       </p>
@@ -1071,7 +1072,7 @@ const App: React.FC = () => {
                     className="flex items-center justify-between p-5 bg-[#1A1A1A] text-white rounded-2xl cursor-pointer transition-all hover:opacity-90"
                   >
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 block tracking-widest mb-0.5">找不到？以代碼手動登錄</span>
+                      <span className="text-[12px] font-bold text-slate-400 block tracking-widest mb-0.5">找不到？以代碼手動登錄</span>
                       <span className="text-lg font-bold">✏️ 新增代碼「{digits}」</span>
                     </div>
                     <div className="bg-white/15 p-2 rounded-xl"><ArrowUpRight size={18} /></div>
@@ -1079,7 +1080,7 @@ const App: React.FC = () => {
                 );
               })()}
             </div>
-            <p className="text-[10px] text-slate-400 mt-4 text-center leading-relaxed">輸入股票代碼（如 <span className="font-bold">1455</span>）系統較能抓到現價；找不到時可手動登錄追蹤</p>
+            <p className="text-[12px] text-slate-400 mt-4 text-center leading-relaxed">輸入股票代碼（如 <span className="font-bold">1455</span>）系統較能抓到現價；找不到時可手動登錄追蹤</p>
           </div>
         </div>
       )}

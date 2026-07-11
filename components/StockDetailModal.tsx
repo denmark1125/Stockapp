@@ -28,11 +28,11 @@ interface StockDetailModalProps {
 // 問題3：把數字翻譯成白話
 const DataExplainer: React.FC<{ label: string; value: string | number | null | undefined; hint: string; status?: 'good' | 'bad' | 'neutral' }> = ({ label, value, hint, status = 'neutral' }) => (
   <div>
-    <span className="text-[10px] font-bold text-slate-400 block mb-0.5">{label}</span>
+    <span className="text-[12px] font-bold text-slate-400 block mb-0.5">{label}</span>
     <div className={`text-xl font-bold mono-text italic ${status === 'good' ? 'text-emerald-600' : status === 'bad' ? 'text-rose-500' : 'text-[#1A1A1A]'}`}>
       {value ?? '--'}
     </div>
-    <span className={`text-[9px] font-bold uppercase tracking-widest block mt-0.5 ${status === 'good' ? 'text-emerald-500' : status === 'bad' ? 'text-rose-400' : 'text-slate-300'}`}>
+    <span className={`text-[12px] font-bold uppercase tracking-widest block mt-0.5 ${status === 'good' ? 'text-emerald-500' : status === 'bad' ? 'text-rose-400' : 'text-slate-300'}`}>
       {hint}
     </span>
   </div>
@@ -91,14 +91,14 @@ const NewsSentimentBlock: React.FC<{ sentiment?: string; summary?: string; score
       <Newspaper size={16} className={`${s.text} shrink-0 mt-0.5`} />
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <span className={`text-[10px] font-bold ${s.text}`}>{s.label}</span>
+          <span className={`text-[12px] font-bold ${s.text}`}>{s.label}</span>
           {score !== undefined && score !== 0 && (
-            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${score > 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+            <span className={`text-[12px] font-bold px-2 py-0.5 rounded-full ${score > 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
               {score > 0 ? `+${score}` : score} 分
             </span>
           )}
         </div>
-        <p className={`text-[11px] font-medium ${s.text}`}>{summary || '新聞情緒分析中'}</p>
+        <p className={`text-[13px] font-medium ${s.text}`}>{summary || '新聞情緒分析中'}</p>
       </div>
     </div>
   );
@@ -180,12 +180,12 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
           )}
 
           <div className="flex items-center gap-3 mb-6">
-            <span className="bg-[#E8973A] text-white text-[9px] font-bold px-2 py-0.5 rounded-md tracking-widest">審計終端</span>
-            <span className="mono-text text-[11px] text-slate-500 font-bold">{stock.stock_code}</span>
+            <span className="bg-[#E8973A] text-white text-[12px] font-bold px-2 py-0.5 rounded-md tracking-widest">審計終端</span>
+            <span className="mono-text text-[13px] text-slate-500 font-bold">{stock.stock_code}</span>
           </div>
 
           <h2 className="serif-text text-4xl lg:text-5xl font-bold tracking-tight mb-1 leading-none">{stock.stock_name}</h2>
-          <p className="text-slate-500 text-[9px] font-bold uppercase tracking-[0.3em] mb-6 italic">Alpha Strategy Audit</p>
+          <p className="text-slate-500 text-[12px] font-bold uppercase tracking-[0.3em] mb-6 italic">Alpha Strategy Audit</p>
 
           {/* 訊號標籤 */}
           {stock.trade_label && (
@@ -198,16 +198,16 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
 
             {/* 系統評估標籤 - 取代 AI 評語 */}
             <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-              <span className="text-[10px] text-slate-500 font-bold block mb-2 uppercase tracking-widest">系統評估</span>
+              <span className="text-[12px] text-slate-500 font-bold block mb-2 uppercase tracking-widest">系統評估</span>
               <div className="flex flex-wrap gap-1.5">
-                {!!stock.trend_bull && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ 均線多頭</span>}
-                {!!stock.macd_cross && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ MACD金叉</span>}
-                {(stock.roe ?? 0) > 15 && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ ROE {stock.roe}%</span>}
-                {(stock.revenue_yoy ?? 0) > 10 && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ 營收+{Math.round(stock.revenue_yoy ?? 0)}%</span>}
-                {(stock.vol_ratio ?? 0) > 1.5 && <span className="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-1 rounded-lg font-bold">⚡ 量比{stock.vol_ratio?.toFixed(1)}x</span>}
-                {(stock.trust_net ?? 0) > 0 && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded-lg font-bold">🏦 投信買超</span>}
-                {(stock.foreign_net ?? 0) > 500000 && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded-lg font-bold">🌍 外資大買</span>}
-                {(stock.revenue_yoy ?? 0) < -15 && <span className="text-[10px] bg-red-500/10 text-red-400 px-2 py-1 rounded-lg font-bold">⚠️ 營收衰退</span>}
+                {!!stock.trend_bull && <span className="text-[12px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ 均線多頭</span>}
+                {!!stock.macd_cross && <span className="text-[12px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ MACD金叉</span>}
+                {(stock.roe ?? 0) > 15 && <span className="text-[12px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ ROE {stock.roe}%</span>}
+                {(stock.revenue_yoy ?? 0) > 10 && <span className="text-[12px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-lg font-bold">✓ 營收+{Math.round(stock.revenue_yoy ?? 0)}%</span>}
+                {(stock.vol_ratio ?? 0) > 1.5 && <span className="text-[12px] bg-amber-500/10 text-amber-400 px-2 py-1 rounded-lg font-bold">⚡ 量比{stock.vol_ratio?.toFixed(1)}x</span>}
+                {(stock.trust_net ?? 0) > 0 && <span className="text-[12px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded-lg font-bold">🏦 投信買超</span>}
+                {(stock.foreign_net ?? 0) > 500000 && <span className="text-[12px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded-lg font-bold">🌍 外資大買</span>}
+                {(stock.revenue_yoy ?? 0) < -15 && <span className="text-[12px] bg-red-500/10 text-red-400 px-2 py-1 rounded-lg font-bold">⚠️ 營收衰退</span>}
               </div>
             </div>
 
@@ -215,14 +215,14 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
             {stock.news_sentiment && stock.news_sentiment !== 'NEUTRAL' && stock.news_summary && (
               <div className={`p-4 rounded-2xl border ${stock.news_sentiment.includes('POSITIVE') ? 'bg-red-500/5 border-red-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">新聞情緒</span>
+                  <span className="text-[12px] text-slate-500 font-bold uppercase tracking-widest">新聞情緒</span>
                   {stock.news_date && (
-                    <span className="text-[9px] text-slate-500 mono-text bg-white/10 px-2 py-0.5 rounded-full">
+                    <span className="text-[12px] text-slate-500 mono-text bg-white/10 px-2 py-0.5 rounded-full">
                       {stock.news_date}
                     </span>
                   )}
                 </div>
-                <p className={`text-[11px] font-medium leading-relaxed ${stock.news_sentiment.includes('POSITIVE') ? 'text-red-400' : 'text-emerald-400'}`}>
+                <p className={`text-[13px] font-medium leading-relaxed ${stock.news_sentiment.includes('POSITIVE') ? 'text-red-400' : 'text-emerald-400'}`}>
                   {stock.news_summary}
                 </p>
               </div>
@@ -232,16 +232,16 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
             <div className="grid grid-cols-1 gap-2">
               {(stock as any).trade_entry && (
                 <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex justify-between items-center">
-                  <span className="text-[10px] text-amber-400 font-bold">📌 建議掛單</span>
+                  <span className="text-[12px] text-amber-400 font-bold">📌 建議掛單</span>
                   <div className="text-xl font-bold text-amber-400 mono-text italic">{(stock as any).trade_entry}</div>
                 </div>
               )}
               <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl flex justify-between items-center">
-                <span className="text-[10px] text-emerald-500 font-bold">🎯 目標價</span>
+                <span className="text-[12px] text-emerald-500 font-bold">🎯 目標價</span>
                 <div className="text-xl font-bold text-emerald-500 mono-text italic">{stock.trade_tp1 || '--'}</div>
               </div>
               <div className={`p-4 rounded-2xl flex justify-between items-center ${isStopped ? 'bg-red-500/20 border border-red-500/40' : 'bg-rose-500/5 border border-rose-500/20'}`}>
-                <span className={`text-[10px] font-bold ${isStopped ? 'text-red-400' : 'text-rose-500'}`}>
+                <span className={`text-[12px] font-bold ${isStopped ? 'text-red-400' : 'text-rose-500'}`}>
                   🛡️ 停損價 {isStopped ? '⚠️ 已觸發' : ''}
                 </span>
                 <div className={`text-xl font-bold mono-text italic ${isStopped ? 'text-red-400' : 'text-rose-500'}`}>
@@ -260,18 +260,18 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
 
                 {/* 持倉摘要卡 */}
                 <div className="bg-gradient-to-br from-[#E8973A]/25 to-[#E8973A]/5 border border-[#E8973A]/40 rounded-2xl p-4">
-                  <p className="text-[9px] font-black text-[#E8973A] uppercase tracking-[0.2em] mb-3">📒 我的持倉</p>
+                  <p className="text-[12px] font-black text-[#E8973A] uppercase tracking-[0.2em] mb-3">📒 我的持倉</p>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <p className="text-[9px] text-slate-500 font-bold mb-0.5">平均成本</p>
+                      <p className="text-[12px] text-slate-500 font-bold mb-0.5">平均成本</p>
                       <p className="text-lg font-bold mono-text text-white leading-none">{stock.buy_price ?? '--'}</p>
                     </div>
                     <div>
-                      <p className="text-[9px] text-slate-500 font-bold mb-0.5">持有股數</p>
+                      <p className="text-[12px] text-slate-500 font-bold mb-0.5">持有股數</p>
                       <p className="text-lg font-bold mono-text text-white leading-none">{(stock.quantity ?? 0).toLocaleString()}</p>
                     </div>
                     <div>
-                      <p className="text-[9px] text-slate-500 font-bold mb-0.5">投入成本</p>
+                      <p className="text-[12px] text-slate-500 font-bold mb-0.5">投入成本</p>
                       <p className="text-lg font-bold mono-text text-white leading-none">{Math.round((stock.buy_price ?? 0) * (stock.quantity ?? 0)).toLocaleString()}</p>
                     </div>
                   </div>
@@ -291,7 +291,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                       <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${row.color}`}>{row.icon}</span>
                       <span className="flex-1 min-w-0">
                         <span className="block text-[12px] font-bold text-white">{row.title}</span>
-                        <span className="block text-[9px] text-slate-500 truncate">{row.desc}</span>
+                        <span className="block text-[12px] text-slate-500 truncate">{row.desc}</span>
                       </span>
                       <ChevronDown size={16} className={`text-slate-500 shrink-0 transition-transform ${holdingTab === row.key ? 'rotate-180' : ''}`} />
                     </button>
@@ -306,7 +306,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                         <div className="px-3.5 pb-3.5 space-y-3">
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <label className="text-[9px] text-slate-500 font-bold block mb-1.5">這批買入價（元）</label>
+                              <label className="text-[12px] text-slate-500 font-bold block mb-1.5">這批買入價（元）</label>
                               <input
                                 type="text" inputMode="decimal" placeholder={stock.close_price > 0 ? String(stock.close_price) : '例：53'}
                                 value={lotPrice} onChange={e => setLotPrice(e.target.value)}
@@ -314,7 +314,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                               />
                             </div>
                             <div>
-                              <label className="text-[9px] text-slate-500 font-bold block mb-1.5">這批股數</label>
+                              <label className="text-[12px] text-slate-500 font-bold block mb-1.5">這批股數</label>
                               <input
                                 type="text" inputMode="numeric" placeholder="例：2000"
                                 value={lotQty} onChange={e => setLotQty(e.target.value)}
@@ -323,7 +323,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                             </div>
                           </div>
                           {newAvg && (
-                            <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-3 py-2.5 text-[11px] text-emerald-400 font-bold">
+                            <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-3 py-2.5 text-[13px] text-emerald-400 font-bold">
                               ✨ 加碼後：均價 {newAvg} 元 × {(oldQty + lq).toLocaleString()} 股
                             </div>
                           )}
@@ -349,7 +349,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                       <div className="px-3.5 pb-3.5 space-y-3">
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="text-[9px] text-slate-500 font-bold block mb-1.5">成交價（元）</label>
+                            <label className="text-[12px] text-slate-500 font-bold block mb-1.5">成交價（元）</label>
                             <input
                               type="text" inputMode="decimal"
                               value={editPrice} onChange={e => setEditPrice(e.target.value)}
@@ -357,7 +357,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                             />
                           </div>
                           <div>
-                            <label className="text-[9px] text-slate-500 font-bold block mb-1.5">股數</label>
+                            <label className="text-[12px] text-slate-500 font-bold block mb-1.5">股數</label>
                             <input
                               type="text" inputMode="numeric"
                               value={editQty} onChange={e => setEditQty(e.target.value)}
@@ -377,13 +377,13 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                     {/* 移除確認 */}
                     {holdingTab === row.key && row.key === 'remove' && (
                       <div className="px-3.5 pb-3.5 space-y-3">
-                        <p className="text-[11px] text-rose-300 leading-relaxed">確定要從帳冊移除 <span className="font-bold text-white">{stock.stock_name}</span> 嗎？此操作無法復原。</p>
+                        <p className="text-[13px] text-rose-300 leading-relaxed">確定要從帳冊移除 <span className="font-bold text-white">{stock.stock_name}</span> 嗎？此操作無法復原。</p>
                         <div className="grid grid-cols-2 gap-2">
-                          <button onClick={() => setHoldingTab(null)} className="py-3 rounded-xl bg-white/5 text-slate-400 text-[11px] font-bold hover:bg-white/10 transition-all">先不要</button>
+                          <button onClick={() => setHoldingTab(null)} className="py-3 rounded-xl bg-white/5 text-slate-400 text-[13px] font-bold hover:bg-white/10 transition-all">先不要</button>
                           <button
                             onClick={async () => { setIsProcessing(true); try { await onTogglePortfolio(stock); } catch(e){console.error(e);} finally { setIsProcessing(false); } }}
                             disabled={isProcessing}
-                            className="py-3 rounded-xl bg-rose-500 text-white text-[11px] font-bold flex items-center justify-center gap-1 hover:bg-rose-600 disabled:opacity-40 transition-all"
+                            className="py-3 rounded-xl bg-rose-500 text-white text-[13px] font-bold flex items-center justify-center gap-1 hover:bg-rose-600 disabled:opacity-40 transition-all"
                           >
                             {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} 確認移除
                           </button>
@@ -401,7 +401,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                   <div className="bg-white/5 rounded-2xl p-4 space-y-3 mb-2">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="text-[9px] text-slate-500 font-bold block mb-1.5">成交價（元）</label>
+                        <label className="text-[12px] text-slate-500 font-bold block mb-1.5">成交價（元）</label>
                         <input
                           type="text" inputMode="decimal" placeholder={stock.close_price > 0 ? String(stock.close_price) : '買入價格'}
                           value={inputPrice} onChange={e => setInputPrice(e.target.value)}
@@ -409,7 +409,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                         />
                       </div>
                       <div>
-                        <label className="text-[9px] text-slate-500 font-bold block mb-1.5">股數</label>
+                        <label className="text-[12px] text-slate-500 font-bold block mb-1.5">股數</label>
                         <input
                           type="text" inputMode="numeric" placeholder="例：1000"
                           value={inputQuantity} onChange={e => setInputQuantity(e.target.value)}
@@ -438,7 +438,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                   <button
                     onClick={async () => { setIsProcessing(true); try { await onToggleWatchlist(stock); } finally { setIsProcessing(false); } }}
                     disabled={isProcessing}
-                    className={`w-full py-3 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-2 transition-all border ${
+                    className={`w-full py-3 rounded-2xl text-[13px] font-bold flex items-center justify-center gap-2 transition-all border ${
                       isWatchlisted ? 'bg-amber-500/15 border-amber-500/40 text-amber-400' : 'bg-transparent border-white/15 text-slate-400 hover:border-amber-500/40 hover:text-amber-400'
                     }`}
                   >
@@ -457,10 +457,10 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
           {/* 歷史走勢圖 */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-[11px] font-bold text-slate-400 flex items-center gap-2">
+              <h3 className="text-[13px] font-bold text-slate-400 flex items-center gap-2">
                 <History size={16} className="text-[#E8973A]" /> 歷史趨勢
               </h3>
-              <div className="flex items-center gap-4 text-[11px] font-bold mono-text">
+              <div className="flex items-center gap-4 text-[13px] font-bold mono-text">
                 <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#1A1A1A]"></span> 價格</span>
                 <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#E8973A]"></span> 評分</span>
               </div>
@@ -486,7 +486,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-4">
               <HelpCircle size={14} className="text-[#E8973A]" />
-              <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">數據解析</h3>
+              <h3 className="text-[13px] font-bold text-slate-400 uppercase tracking-widest">數據解析</h3>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-slate-50/50 rounded-3xl border border-slate-100">
               <DataExplainer label="量比 (成交量)" value={`${stock.vol_ratio?.toFixed(1)}x`} hint={volInfo.hint} status={volInfo.status} />
@@ -502,8 +502,8 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
               <div className={`flex items-center gap-3 p-3 rounded-2xl border ${stock.trend_bull ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-100'}`}>
                 <span className="text-lg">{stock.trend_bull ? '✅' : '❌'}</span>
                 <div>
-                  <p className="text-[10px] font-bold text-slate-600">均線排列</p>
-                  <p className={`text-[9px] font-bold ${stock.trend_bull ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  <p className="text-[12px] font-bold text-slate-600">均線排列</p>
+                  <p className={`text-[12px] font-bold ${stock.trend_bull ? 'text-emerald-600' : 'text-slate-400'}`}>
                     {stock.trend_bull ? '多頭排列，趨勢向上' : '非多頭，謹慎操作'}
                   </p>
                 </div>
@@ -511,8 +511,8 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
               <div className={`flex items-center gap-3 p-3 rounded-2xl border ${stock.macd_cross ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-100'}`}>
                 <span className="text-lg">{stock.macd_cross ? '✅' : '⬜'}</span>
                 <div>
-                  <p className="text-[10px] font-bold text-slate-600">MACD 金叉</p>
-                  <p className={`text-[9px] font-bold ${stock.macd_cross ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  <p className="text-[12px] font-bold text-slate-600">MACD 金叉</p>
+                  <p className={`text-[12px] font-bold ${stock.macd_cross ? 'text-emerald-600' : 'text-slate-400'}`}>
                     {stock.macd_cross ? '今日出現金叉訊號' : '尚未出現金叉'}
                   </p>
                 </div>
@@ -525,7 +525,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
           {/* 籌碼面 */}
           {(stock.trust_net !== 0 || stock.foreign_net !== 0) && (
             <div className="mb-6">
-              <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">籌碼面</h3>
+              <h3 className="text-[13px] font-bold text-slate-400 uppercase tracking-widest mb-3">籌碼面</h3>
               <div className="grid grid-cols-3 gap-3">
                 {[
                   { label: '投信', value: stock.trust_net, emoji: '🏦' },
@@ -534,7 +534,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                 ].map(item => (
                   <div key={item.label} className={`p-3 rounded-2xl border text-center ${(item.value || 0) > 0 ? 'bg-red-50 border-red-100' : (item.value || 0) < 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-100'}`}>
                     <div className="text-lg mb-1">{item.emoji}</div>
-                    <p className="text-[9px] font-bold text-slate-400 mb-1">{item.label}</p>
+                    <p className="text-[12px] font-bold text-slate-400 mb-1">{item.label}</p>
                     <p className={`text-xs font-bold mono-text ${(item.value || 0) > 0 ? 'text-red-500' : (item.value || 0) < 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
                       {(item.value || 0) > 0 ? '+' : ''}{item.value?.toLocaleString() || '0'}
                     </p>
