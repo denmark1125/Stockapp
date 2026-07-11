@@ -208,6 +208,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                 {(stock.trust_net ?? 0) > 0 && <span className="text-[12px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded-lg font-bold">🏦 投信買超</span>}
                 {(stock.foreign_net ?? 0) > 500000 && <span className="text-[12px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded-lg font-bold">🌍 外資大買</span>}
                 {(stock.revenue_yoy ?? 0) < -15 && <span className="text-[12px] bg-red-500/10 text-red-400 px-2 py-1 rounded-lg font-bold">⚠️ 營收衰退</span>}
+                {Number(stock.ai_score) >= 85 && <span className="text-[12px] bg-amber-500/10 text-amber-400 px-2 py-1 rounded-lg font-bold">⚠️ 過熱分數帶：近月 85+ 分勝率反低於 75-79 分帶，高分≠更穩</span>}
               </div>
             </div>
 

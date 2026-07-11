@@ -272,6 +272,12 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
                 △ 追高
               </span>
             )}
+            {Number(stock.ai_score) >= 85 && (
+              <span className="text-[12px] font-bold text-[#C87832] bg-[#FBF4E9] rounded-full px-2.5 py-1"
+                title="回測：近月 85 分以上勝率反而低於 75-79 分帶，高分≠更穩">
+                ⚠ 過熱分數帶
+              </span>
+            )}
           </div>
         </div>
 

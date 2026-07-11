@@ -804,9 +804,14 @@ const App: React.FC = () => {
                     <span className="num text-[17px] font-black" style={{ color: '#8B8270' }}>累計 {g.wr}%</span>
                   )}
                   <span className="num text-[12px] text-[#A89878]">· {g.n} 次驗證</span>
+                  {typeof (g as any).avg_ret === 'number' && (
+                    <span className="num text-[13px] font-black" style={{ color: (g as any).avg_ret >= 0 ? '#C83232' : '#10b981' }}>
+                      · 平均每筆 {(g as any).avg_ret > 0 ? '+' : ''}{(g as any).avg_ret}%
+                    </span>
+                  )}
                 </div>
                 <p className="text-[12px] text-[#8B7E68] mt-1 leading-snug">
-                  GBrain 自己標的「🔥 高機會」事後對帳命中率。{up ? '近月在進步 📈' : down ? '近月退步，演算法會自動調權修正' : '持平累積中'}。非投資建議。
+                  GBrain 自己標的「🔥 高機會」事後對帳命中率（命中＝5日內漲逾5%的硬門檻，門檻嚴、數字天生偏低，搭配平均每筆報酬看才公平）。{up ? '近月在進步 📈' : down ? '近月退步，演算法會自動調權修正' : '持平累積中'}。非投資建議。
                 </p>
               </div>
             </div>
