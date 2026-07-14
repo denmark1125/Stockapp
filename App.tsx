@@ -167,20 +167,14 @@ const App: React.FC = () => {
       return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
     })();
 
-    // 量增小加分：同燈數下,成交量真的放大的股票排序往前推一點(封頂+8分,不會蓋過技術分本身)。
-    // 呼應使用者需求「分數高但成交量很大的也可以參考」——量大代表這檔的分數更有市場認同度撐著。
-    const volumeBonus = (s: DailyAnalysis) => {
-      const vr = Number(s.vol_ratio) || 0;
-      return vr > 1 ? Math.min((vr - 1) * 3, 8) : 0;
-    };
     const getEliteScore = (s: DailyAnalysis) => {
       const history = scoreHistoryMap.get(s.stock_code) || [];
       const currentScore = strategy === 'short' ? (Number(s.score_short) || 0) : (Number(s.score_long) || 0);
       if (strategy === 'long' && history.length > 1) {
         const avgScore = history.reduce((a, b) => a + b, 0) / history.length;
-        return (currentScore * 0.6) + (avgScore * 0.4) + volumeBonus(s);
+        return (currentScore * 0.6) + (avgScore * 0.4);
       }
-      return currentScore + volumeBonus(s);
+      return currentScore;
     };
 
     // 追高判定（與卡片一致）：買進訊號且現價比建議買點高 >3% → 追高，排序時往後放
