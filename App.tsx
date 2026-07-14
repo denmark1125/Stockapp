@@ -115,7 +115,6 @@ const App: React.FC = () => {
     const allDates = [...new Set(state.data.filter(s => !SPECIAL_CODES.has(s.stock_code)).map(s => s.analysis_date))].sort().reverse();
     const latestDate = allDates[0] || null;
     const latestData = latestDate ? state.data.filter(s => s.analysis_date === latestDate) : [];
-    const marketBrief = latestData.find(s => s.stock_code === 'MARKET_BRIEF') || null;
     // 清單股價套用盤中即時價（TWSE MIS 免費），有即時價的標 rt_live 顯示綠點
     const latestStocks = latestData
       .filter(s => !SPECIAL_CODES.has(s.stock_code))
@@ -160,15 +159,28 @@ const App: React.FC = () => {
     const marketChangePct = marketStateRow?.volatility != null ? Number(marketStateRow.volatility) : null;
     const marketDayCaution = (marketStateRow?.trade_label as string) || 'CALM';  // CRASH/WEAK/STRONG/CALM
     const marketCautionMsg = (marketStateRow?.ai_comment as string) || '';
+    // 全市場量能：今日個股 vol_ratio 平均（後端沒有存市場級量能欄位，前端用現有資料即時算，
+    // 免新欄位/免改後端）。MARKET_BRIEF 特殊列從沒被寫過，之前卡片讀 brief?.volatility/vol_ratio
+    // 永遠是 undefined→顯示寫死的 0.0%/1.0x 預設值，是死程式碼，這次直接拔掉改吃真資料。
+    const marketVolRatio = (() => {
+      const vals = latestStocks.map(s => Number(s.vol_ratio)).filter(v => v > 0);
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    })();
 
+    // 量增小加分：同燈數下,成交量真的放大的股票排序往前推一點(封頂+8分,不會蓋過技術分本身)。
+    // 呼應使用者需求「分數高但成交量很大的也可以參考」——量大代表這檔的分數更有市場認同度撐著。
+    const volumeBonus = (s: DailyAnalysis) => {
+      const vr = Number(s.vol_ratio) || 0;
+      return vr > 1 ? Math.min((vr - 1) * 3, 8) : 0;
+    };
     const getEliteScore = (s: DailyAnalysis) => {
       const history = scoreHistoryMap.get(s.stock_code) || [];
       const currentScore = strategy === 'short' ? (Number(s.score_short) || 0) : (Number(s.score_long) || 0);
       if (strategy === 'long' && history.length > 1) {
         const avgScore = history.reduce((a, b) => a + b, 0) / history.length;
-        return (currentScore * 0.6) + (avgScore * 0.4);
+        return (currentScore * 0.6) + (avgScore * 0.4) + volumeBonus(s);
       }
-      return currentScore;
+      return currentScore + volumeBonus(s);
     };
 
     // 追高判定（與卡片一致）：買進訊號且現價比建議買點高 >3% → 追高，排序時往後放
@@ -305,7 +317,6 @@ const App: React.FC = () => {
     });
 
     return {
-      marketBrief,
       marketRegime,
       marketChangePct,
       marketDayCaution,
@@ -313,6 +324,7 @@ const App: React.FC = () => {
       signalStats,
       gbrainTrend,
       sectorFlow,
+      marketVolRatio,
       eliteList,
       aiList,
       topPicks,
@@ -774,7 +786,13 @@ const App: React.FC = () => {
         </header>
 
         {activeView !== 'portfolio' && (
-          <MarketBriefing brief={processedData.marketBrief} loading={state.loading} marketRegime={processedData.marketRegime} />
+          <MarketBriefing
+            loading={state.loading}
+            marketRegime={processedData.marketRegime}
+            changePct={processedData.marketChangePct}
+            volRatio={processedData.marketVolRatio}
+            date={processedData.latestDate}
+          />
         )}
 
         <div className="flex gap-1 mb-10 bg-white p-1.5 rounded-full w-fit mx-auto lg:mx-0 border border-[#EDE7DA] shadow-sm">

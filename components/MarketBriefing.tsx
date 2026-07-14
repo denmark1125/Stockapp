@@ -1,14 +1,15 @@
 import React from 'react';
 import { Activity, Info, TrendingUp, TrendingDown, AlertTriangle, Clock } from 'lucide-react';
-import { DailyAnalysis } from '../types';
 
 interface MarketBriefingProps {
-  brief: DailyAnalysis | null;
   loading: boolean;
   marketRegime?: string;  // 問題5：新增大盤狀態
+  changePct?: number | null;  // 大盤今日漲跌%（MARKET_STATE.volatility，真實資料）
+  volRatio?: number | null;   // 全市場個股 vol_ratio 平均（前端即時算，真實資料）
+  date?: string | null;       // 最新資料日期
 }
 
-export const MarketBriefing: React.FC<MarketBriefingProps> = ({ brief, loading, marketRegime }) => {
+export const MarketBriefing: React.FC<MarketBriefingProps> = ({ loading, marketRegime, changePct, volRatio, date }) => {
   if (loading) return (
     <div className="w-full bg-slate-50 rounded-3xl p-10 animate-pulse border border-slate-100 mb-10 h-32"></div>
   );
@@ -48,9 +49,9 @@ export const MarketBriefing: React.FC<MarketBriefingProps> = ({ brief, loading, 
     );
   }
 
-  if (!brief && marketRegime !== 'BULL' && marketRegime !== 'SIDEWAYS') return null;
+  if (marketRegime !== 'BULL' && marketRegime !== 'SIDEWAYS') return null;
 
-  const isBull = marketRegime === 'BULL' || brief?.trade_signal === 'BULL';
+  const isBull = marketRegime === 'BULL';
   const isSideways = marketRegime === 'SIDEWAYS';
 
   return (
@@ -60,7 +61,7 @@ export const MarketBriefing: React.FC<MarketBriefingProps> = ({ brief, loading, 
       <div className="flex items-center gap-3 mb-5">
         <div className={`w-[5px] h-6 rounded-full ${isBull ? 'bg-[#C83232]' : isSideways ? 'bg-[#E8973A]' : 'bg-slate-300'}`} />
         <h2 className="text-[19px] font-black text-[#1A1A1A]">今日市場</h2>
-        {brief?.analysis_date && <span className="num text-[12px] text-slate-400 ml-auto">{brief.analysis_date}</span>}
+        {date && <span className="num text-[12px] text-slate-400 ml-auto">{date}</span>}
       </div>
 
       {/* 大數字統計卡排(參考「產業關鍵指標」格式：icon籤 + 標籤 + 大粗字) */}
@@ -83,8 +84,11 @@ export const MarketBriefing: React.FC<MarketBriefingProps> = ({ brief, loading, 
             <Activity size={22} />
           </div>
           <div className="min-w-0">
-            <p className="text-[12px] font-bold text-[#A89878]">預期波動</p>
-            <p className="num text-[19px] font-black text-[#1A1A1A] leading-tight">{brief?.volatility || '0.0'}%</p>
+            <p className="text-[12px] font-bold text-[#A89878]">今日漲跌</p>
+            <p className="num text-[19px] font-black leading-tight"
+              style={{ color: changePct == null ? '#1A1A1A' : changePct >= 0 ? '#C83232' : '#10b981' }}>
+              {changePct != null ? `${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%` : '—'}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3 bg-[#FBF9F4] rounded-2xl p-4 border border-[#F0EAE0]">
@@ -92,8 +96,8 @@ export const MarketBriefing: React.FC<MarketBriefingProps> = ({ brief, loading, 
             <Clock size={22} />
           </div>
           <div className="min-w-0">
-            <p className="text-[12px] font-bold text-[#A89878]">量能</p>
-            <p className="num text-[19px] font-black text-[#1A1A1A] leading-tight">{brief?.vol_ratio || '1.0'}x</p>
+            <p className="text-[12px] font-bold text-[#A89878]">全市場量能</p>
+            <p className="num text-[19px] font-black text-[#1A1A1A] leading-tight">{volRatio != null ? volRatio.toFixed(2) : '—'}x</p>
           </div>
         </div>
       </div>
@@ -102,7 +106,7 @@ export const MarketBriefing: React.FC<MarketBriefingProps> = ({ brief, loading, 
       <p className="text-[16px] font-bold text-[#2D2D2D] leading-relaxed mb-3">
         {isBull ? '多頭氣勢強勁，聚焦動能領頭標的' :
          isSideways ? '大盤盤整，選股需更嚴格，優先波段布局' :
-         brief?.ai_comment || '目前市場環境相對穩定，適合觀測趨勢標的。'}
+         '目前市場環境相對穩定，適合觀測趨勢標的。'}
       </p>
       <div className={`rounded-xl overflow-hidden flex items-stretch ${isBull ? 'bg-[#FBF1EF]' : isSideways ? 'bg-[#FBF4E9]' : 'bg-slate-50'}`}>
         <div className={`w-[4px] shrink-0 ${isBull ? 'bg-[#C83232]' : isSideways ? 'bg-[#E8973A]' : 'bg-slate-300'}`} />
