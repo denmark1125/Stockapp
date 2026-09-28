@@ -46,6 +46,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
         accentColor: '#94A3B8', action: '整體推薦驗證未過關，先不要照訊號下單', isActive: false }
     : rawStyle;
   const isBuySignal = ['STRONG_BUY', 'SWING_BUY', 'DAYTRADE_BUY'].includes(style.signal);
+  const planUnverified = isBuySignal && !picksEnabled && !stock.is_holding_item;
   const hasTradePlan = Number(stock.trade_stop) > 0 && Number(stock.trade_stop) < Number(stock.trade_entry)
     && Number(stock.trade_entry) < Number(stock.trade_tp1);
   const hasAlert = stock.trade_label && ['🚫 今日跌停','🔴 大跌警告','📤 爆量出貨','⚡ 超買反轉','❌ 掛單失效'].includes(stock.trade_label);
@@ -312,18 +313,19 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
         {/* ── 三格價格 ── */}
         <div className="grid grid-cols-3 gap-1.5">
           <div className="bg-emerald-50/70 rounded-xl py-2.5 text-center">
-            <div className="text-[13px] font-bold text-emerald-700/70 mb-0.5">目標價</div>
+            <div className="text-[13px] font-bold text-emerald-700/70 mb-0.5">{planUnverified ? '未驗證試算目標' : '目標價'}</div>
             <div className="num text-[17px] font-bold text-emerald-700">{stock.trade_tp1 ?? '—'}</div>
           </div>
           <div className={`rounded-xl py-2.5 text-center ${isStopped ? 'bg-[#FBF1EF]' : 'bg-[#F8F5EE]'}`}>
-            <div className={`text-[13px] font-bold mb-0.5 ${isStopped ? 'text-[#C83232]/70' : 'text-[#A89878]'}`}>停損價</div>
+            <div className={`text-[13px] font-bold mb-0.5 ${isStopped ? 'text-[#C83232]/70' : 'text-[#A89878]'}`}>{planUnverified ? '未驗證試算停損' : '停損價'}</div>
             <div className={`num text-[17px] font-bold ${isStopped ? 'text-[#C83232]' : 'text-[#5A4E3C]'}`}>{stock.trade_stop ?? '—'}</div>
           </div>
           <div className="bg-[#FBF4E9] rounded-xl py-2.5 text-center">
-            <div className="text-[13px] font-bold text-[#C87832]/70 mb-0.5">建議進場</div>
+            <div className="text-[13px] font-bold text-[#C87832]/70 mb-0.5">{planUnverified ? '未驗證試算買點' : '建議進場'}</div>
             <div className={`num text-[17px] font-bold ${stock.trade_entry ? 'text-[#C87832]' : 'text-[#C8BA9A]'}`}>{stock.trade_entry ?? '—'}</div>
           </div>
         </div>
+        {planUnverified && <p className="mt-2 text-[11px] text-slate-500">以上是舊模型試算價；成交回測未過關，請勿當作下單依據。</p>}
       </div>
 
       {/* ── 版腳數據列 ── */}
