@@ -135,10 +135,10 @@ const App: React.FC = () => {
     //    量法＝碰TP1先於停損；含近月/前月趨勢；_gbrain＝GBrain 高機會自驗命中率趨勢（真正的進步記分板）
     type WinStat = { wr: number; n: number; wr_recent?: number | null; n_recent?: number; wr_prev?: number | null; n_prev?: number };
     type FireGate = { active?: boolean; updated?: string; reason?: string; passing_weeks?: number; recent?: { n?: number; targets?: number; target_rate?: number | null; avg_net_return?: number | null } };
-    const { signalStats, gbrainTrend, fireGate } = ((): { signalStats: Record<string, WinStat>; gbrainTrend: WinStat | null; fireGate: FireGate } => {
+    const { signalStats, gbrainTrend, fireGate, pickGate } = ((): { signalStats: Record<string, WinStat>; gbrainTrend: WinStat | null; fireGate: FireGate; pickGate: FireGate } => {
       const row = state.data.filter(s => s.stock_code === 'SIGNAL_STATS')
         .sort((a, b) => (b.analysis_date || '').localeCompare(a.analysis_date || ''))[0];
-      if (!row?.ai_comment) return { signalStats: {}, gbrainTrend: null, fireGate: {} };
+      if (!row?.ai_comment) return { signalStats: {}, gbrainTrend: null, fireGate: {}, pickGate: {} };
       try {
         const parsed = JSON.parse(row.ai_comment as string);
         const out: Record<string, WinStat> = {};
@@ -146,14 +146,18 @@ const App: React.FC = () => {
           if (!k.startsWith('_') && v && typeof v.wr === 'number') out[k.toUpperCase()] = v;
         });
         const gb = parsed._gbrain && typeof parsed._gbrain.wr === 'number' ? parsed._gbrain : null;
-        return { signalStats: out, gbrainTrend: gb, fireGate: parsed._fire_gate || {} };
-      } catch { return { signalStats: {}, gbrainTrend: null, fireGate: {} }; }
+        return { signalStats: out, gbrainTrend: gb, fireGate: parsed._fire_gate || {}, pickGate: parsed._pick_gate || {} };
+      } catch { return { signalStats: {}, gbrainTrend: null, fireGate: {}, pickGate: {} }; }
     })();
     const twParts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
     const twPart = (name: string) => twParts.find(p => p.type === name)?.value || '';
     const twToday = `${twPart('year')}-${twPart('month')}-${twPart('day')}`;
-    const fireAgeDays = fireGate.updated ? (Date.parse(twToday) - Date.parse(fireGate.updated)) / 86400000 : Infinity;
-    const fireEnabled = fireGate.active === true && fireAgeDays >= 0 && fireAgeDays <= 4;
+    const gateActive = (gate: FireGate) => {
+      const days = gate.updated ? (Date.parse(twToday) - Date.parse(gate.updated)) / 86400000 : Infinity;
+      return gate.active === true && days >= 0 && days <= 4;
+    };
+    const picksEnabled = gateActive(pickGate);
+    const fireEnabled = picksEnabled && gateActive(fireGate);
 
     // 🗺️ 產業脈動（掃描器收盤後寫進 SECTOR_FLOW 列的 ai_comment，JSON）→ 熱力圖＋資金流排行
     const sectorFlow: SectorFlowData | null = (() => {
@@ -237,7 +241,7 @@ const App: React.FC = () => {
     };
     const isEntryInvalid = (s: DailyAnalysis) => Number(s.close_price) < Number(s.trade_entry) * 0.97;
     const pickPool = latestStocks
-      .filter(s => isBuySig(s) && hasTradePlan(s) && (!marketOpen || s.rt_live) && !isChasing(s) && !isEntryInvalid(s) && !s.risk_flag && litCount(s) >= 3)
+      .filter(s => picksEnabled && isBuySig(s) && hasTradePlan(s) && (!marketOpen || s.rt_live) && !isChasing(s) && !isEntryInvalid(s) && !s.risk_flag && litCount(s) >= 3)
       .sort((a, b) => {
         const d = litCount(b) - litCount(a);
         if (d) return d;
@@ -341,6 +345,8 @@ const App: React.FC = () => {
       gbrainTrend,
       fireGate,
       fireEnabled,
+      pickGate,
+      picksEnabled,
       marketOpen,
       sectorFlow,
       marketVolRatio,
@@ -927,6 +933,11 @@ const App: React.FC = () => {
         )}
 
         {/* 🏆 今日嚴選：可進場＋亮燈≥3 的前 5 檔（AI 特區只嚴選 AI 股）。下面完整清單照舊保留 */}
+        {!processedData.picksEnabled && activeView !== 'portfolio' && (
+          <div className="mb-5 px-5 py-4 bg-amber-50 border border-amber-200 rounded-2xl text-[13px] font-bold text-amber-800">
+            今日嚴選暫停：照原本買點與停損回測，嚴選組尚未跑贏一般買訊。先看資料，不要照卡片直接下單；有新成交驗證連續通過才恢復。
+          </div>
+        )}
         {(activeView === 'elite' || activeView === 'ai') && (() => {
           const picks = activeView === 'ai' ? processedData.aiTopPicks : processedData.topPicks;
           return (
@@ -938,15 +949,15 @@ const App: React.FC = () => {
               {picks.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {picks.map((s, i) => (
-                    <ActionCard key={`pick-${s.id}`} stock={s} strategyMode={strategy} signalStats={processedData.signalStats} fireEnabled={processedData.fireEnabled} marketOpen={processedData.marketOpen}
+                    <ActionCard key={`pick-${s.id}`} stock={s} strategyMode={strategy} signalStats={processedData.signalStats} fireEnabled={processedData.fireEnabled} picksEnabled={processedData.picksEnabled} marketOpen={processedData.marketOpen}
                       pickInfo={{ rank: i + 1, conds: processedData.litMap[(s.stock_code || '').replace(/\.(TW|TWO)$/i, '').toUpperCase()] || [] }}
                       onSelect={() => { setSelectedStock(s); setStockAiReport(null); }} />
                   ))}
                 </div>
               ) : (
                 <div className="py-10 text-center bg-white rounded-[2rem] border border-slate-100">
-                  <p className="serif-text text-lg text-slate-300 italic mb-1">今日沒有「可進場＋亮燈≥3」的標的</p>
-                  <p className="text-[12px] font-bold text-slate-400">寧缺勿濫——條件不夠就先別出手，等好球再揮棒</p>
+                  <p className="serif-text text-lg text-slate-300 italic mb-1">{processedData.picksEnabled ? '今日沒有「可進場＋亮燈≥3」的標的' : '嚴選驗證未過關，今天不列推薦'}</p>
+                  <p className="text-[12px] font-bold text-slate-400">寧缺勿濫——先不要照系統訊號下單</p>
                 </div>
               )}
               <div className="flex items-baseline gap-3 mt-10 mb-2">
@@ -974,7 +985,7 @@ const App: React.FC = () => {
               return code.includes(q) || name.includes(q);
             })
             .map((s, i) => (
-              <ActionCard key={s.id} stock={s} strategyMode={strategy} signalStats={processedData.signalStats} fireEnabled={processedData.fireEnabled} marketOpen={processedData.marketOpen}
+              <ActionCard key={s.id} stock={s} strategyMode={strategy} signalStats={processedData.signalStats} fireEnabled={processedData.fireEnabled} picksEnabled={processedData.picksEnabled} marketOpen={processedData.marketOpen}
                 orderNo={activeView !== 'portfolio' ? i + 1 : undefined}
                 lit={processedData.litMap[(s.stock_code || '').replace(/\.(TW|TWO)$/i, '').toUpperCase()]}
                 onSelect={() => { setSelectedStock(s); setStockAiReport(null); }} />
@@ -994,7 +1005,7 @@ const App: React.FC = () => {
                 const rt = realtimeQuotes[(r.stock_code || '').replace(/\.(TW|TWO)$/i, '').toUpperCase()];
                 return (
                   <ActionCard key={`hist-${r.stock_code}`} stock={rt && rt > 0 ? { ...r, close_price: rt, rt_live: true } : r}
-                    strategyMode={strategy} signalStats={processedData.signalStats} fireEnabled={processedData.fireEnabled}
+                    strategyMode={strategy} signalStats={processedData.signalStats} fireEnabled={processedData.fireEnabled} picksEnabled={processedData.picksEnabled}
                     onSelect={() => { setSelectedStock(r); setStockAiReport(null); }} />
                 );
               })}
