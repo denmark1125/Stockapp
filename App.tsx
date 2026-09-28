@@ -134,7 +134,7 @@ const App: React.FC = () => {
     // 📊 訊號歷史命中率（回測寫進 SIGNAL_STATS 列的 ai_comment，JSON）→ 卡片「同類訊號近半年命中 X 成」
     //    量法＝碰TP1先於停損；含近月/前月趨勢；_gbrain＝GBrain 高機會自驗命中率趨勢（真正的進步記分板）
     type WinStat = { wr: number; n: number; wr_recent?: number | null; n_recent?: number; wr_prev?: number | null; n_prev?: number };
-    type FireGate = { active?: boolean; updated?: string; reason?: string; passing_weeks?: number; recent?: { n?: number; targets?: number; target_rate?: number | null; avg_net_return?: number | null } };
+    type FireGate = { active?: boolean; updated?: string; model?: string; reason?: string; passing_weeks?: number; recent?: { n?: number; targets?: number; target_rate?: number | null; avg_net_return?: number | null } };
     const { signalStats, gbrainTrend, fireGate, pickGate } = ((): { signalStats: Record<string, WinStat>; gbrainTrend: WinStat | null; fireGate: FireGate; pickGate: FireGate } => {
       const row = state.data.filter(s => s.stock_code === 'SIGNAL_STATS')
         .sort((a, b) => (b.analysis_date || '').localeCompare(a.analysis_date || ''))[0];
@@ -157,7 +157,7 @@ const App: React.FC = () => {
       return gate.active === true && days >= 0 && days <= 4;
     };
     // 個股清單持續提供；回測結果只標示模型風險，不能把整個個股 App 關掉。
-    const pickValidated = gateActive(pickGate);
+    const pickValidated = pickGate.model === 'daily_top5_v2' && gateActive(pickGate);
     const fireEnabled = gateActive(fireGate);
 
     // 🗺️ 產業脈動（掃描器收盤後寫進 SECTOR_FLOW 列的 ai_comment，JSON）→ 熱力圖＋資金流排行
