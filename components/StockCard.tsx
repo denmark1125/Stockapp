@@ -9,7 +9,7 @@ interface ActionCardProps {
   signalStats?: Record<string, { wr: number; n: number; wr_recent?: number | null; wr_prev?: number | null }>; // 訊號歷史命中率
   pickInfo?: { rank: number; conds: string[] };  // 🏆 今日嚴選：名次＋亮的燈
   orderNo?: number;                               // 清單推薦順位（#1 #2 …讓排序看得懂）
-  lit?: string[];                                 // 亮燈清單（七盞驗證燈裡亮了哪些）
+  lit?: string[];                                 // 亮燈清單（五個篩選條件）
 }
 
 const resolveSignal = (signal: string, score: number, isHolding: boolean): string => {
@@ -46,11 +46,14 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
   const isStopped = !!(stock.is_holding_item && stock.trade_stop && stock.close_price < stock.trade_stop);
   const style = getSignalStyle(stock.trade_signal, score, !!stock.is_holding_item, isStopped);
   const isBuySignal = ['STRONG_BUY', 'SWING_BUY', 'DAYTRADE_BUY'].includes(style.signal);
+  const hasTradePlan = Number(stock.trade_stop) > 0 && Number(stock.trade_stop) < Number(stock.trade_entry)
+    && Number(stock.trade_entry) < Number(stock.trade_tp1);
   const hasAlert = stock.trade_label && ['🚫 今日跌停','🔴 大跌警告','📤 爆量出貨','⚡ 超買反轉','❌ 掛單失效'].includes(stock.trade_label);
 
   const entryFeasibility = (() => {
     if (!isBuySignal || !stock.trade_entry || stock.is_holding_item) return null;
     const ratio = stock.close_price / stock.trade_entry;
+    if (ratio < 0.97) return 'broken';
     if (ratio <= 1.03) return 'ok';
     return 'chasing';
   })();
@@ -73,7 +76,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
       const prem = (stock.close_price / stock.trade_entry - 1) * 100;
       reasons.push(prem > 3 ? `已比買點高${prem.toFixed(0)}%` : `現價貼近買點(${prem >= 0 ? '+' : ''}${prem.toFixed(1)}%)`);
     }
-    // 🏆 亮燈數（嚴選七盞驗證燈）——買進訊號才顯示，燈越多歷史勝率越高
+    // 🏆 亮燈數是排序條件，近期資料不支持「燈越多勝率越高」的說法。
     if (isBuySignal && lit && lit.length > 0) {
       reasons.push(`亮燈${lit.length}/5`);
     }
@@ -93,7 +96,9 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
     if (sig === 'SELL_STOP') return { tag: '結論', txt: '已破停損 · 建議出場', accent: '#C83232', bg: '#FBF1EF', fg: '#C83232', reasons: [`現價${stock.close_price}`, stock.trade_stop ? `跌破停損${stock.trade_stop}` : ''].filter(Boolean) };
     if (sig === 'AVOID') return { tag: '結論', txt: '避開 · 現在別碰', accent: '#B5AE9E', bg: '#F2EFE7', fg: '#8B8270', reasons: reasons.length ? reasons : ['系統評估條件不足'] };
     if (isBuySignal) {
-      if (entryFeasibility === 'chasing') return { tag: '結論', txt: '好股但漲多了 · 等回檔再買', accent: '#C87832', bg: '#FBF4E9', fg: '#A8702A', reasons };
+      if (!hasTradePlan) return { tag: '結論', txt: '價位計畫不完整，先別買', accent: '#C87832', bg: '#FBF4E9', fg: '#A8702A', reasons };
+      if (entryFeasibility === 'broken') return { tag: '結論', txt: '跌破原買點，先等重新評估', accent: '#C87832', bg: '#FBF4E9', fg: '#A8702A', reasons };
+      if (entryFeasibility === 'chasing') return { tag: '結論', txt: '今天已經漲過頭，別追', accent: '#C87832', bg: '#FBF4E9', fg: '#A8702A', reasons };
       return { tag: '可買', txt: '可考慮買進', accent: '#C83232', bg: '#FBF1EF', fg: '#C83232', reasons };
     }
     return { tag: '結論', txt: '觀望 · 先別動', accent: '#B5AE9E', bg: '#F2EFE7', fg: '#8B8270', reasons: reasons.length ? reasons : ['量能未放大'] };
@@ -150,8 +155,8 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
                 </span>
               )}
               {stock.opportunity_label === '🔥 高機會' && (
-                <span className="inline-flex items-center bg-[#C83232] text-white text-[12px] font-bold px-2.5 py-1 rounded-full">
-                  🔥 高機會
+                <span className="inline-flex items-center bg-slate-100 text-slate-500 text-[12px] font-bold px-2.5 py-1 rounded-full">
+                  🔥 火焰暫停驗證中
                 </span>
               )}
             </div>
@@ -162,8 +167,8 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
             </div>
             {stock.rt_live && (
               <div className="flex items-center justify-end gap-1 mt-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="num text-[13px] font-bold text-emerald-600 tracking-wider">即時</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="num text-[13px] font-bold text-emerald-600 tracking-wider">報價參考</span>
               </div>
             )}
             {stock.is_holding_item && (
@@ -269,7 +274,17 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
             )}
             {entryFeasibility === 'chasing' && (
               <span className="text-[12px] font-bold text-[#C87832] bg-[#FBF4E9] rounded-full px-2.5 py-1">
-                △ 追高
+                今天已經漲過頭，別追
+              </span>
+            )}
+            {entryFeasibility === 'broken' && (
+              <span className="text-[12px] font-bold text-[#C87832] bg-[#FBF4E9] rounded-full px-2.5 py-1">
+                跌破買點，先等重新評估
+              </span>
+            )}
+            {isBuySignal && !hasTradePlan && !stock.is_holding_item && (
+              <span className="text-[12px] font-bold text-[#C87832] bg-[#FBF4E9] rounded-full px-2.5 py-1">
+                價位不完整，先別買
               </span>
             )}
             {Number(stock.ai_score) >= 85 && (
@@ -283,7 +298,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
 
         {/* ── 操作指令 ── */}
         <p className={`text-[13px] leading-relaxed mb-4 font-medium ${style.labelColor}`}>
-          「{style.action}」
+          「{isBuySignal && !hasTradePlan && !stock.is_holding_item ? '缺少完整進場、停損或目標價，今天先不要下單' : entryFeasibility === 'broken' ? '現價已低於原買點 3%，舊訊號失效，先等重新掃描' : entryFeasibility === 'chasing' ? '現價高於建議買點 3%，今天先不要追價' : style.action}」
         </p>
 
         {/* ── 三格價格 ── */}

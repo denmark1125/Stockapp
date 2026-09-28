@@ -185,13 +185,14 @@ const App: React.FC = () => {
       return (Number(s.close_price) / entry) > 1.03;
     };
 
+    // 與 Stock-Auto-Scanner/scan_stocks.py rank_top_picks 同步；改燈或排序時兩邊要一起改。
     // ⭐ 嚴選五盞燈（精兵制，2026-07-03 回測 7371 筆驗證）：只留「單燈有真優勢」的贏家訊號，
     //    弱燈（均線/法人/新聞/放量/MACD，單燈≈基準48%）會稀釋訊號已移除。
-    //    疊加完美遞增：0燈38.1% → 2燈50.9% → 3燈55.0% → 4燈74.7%（近月也一路遞增到64%）。
+    //    舊回測曾見遞增，但近期已失效；燈數僅作排序，不能當成勝率保證。
     //    52週高/RS強勢 需 pos52w/rs20 欄位（已建，晨掃起回填——當天資料沒有時該燈不亮不會壞）。
     const PICK_CONDS: [string, (s: DailyAnalysis) => boolean][] = [
       ['AI題材',   s => !!s.ai_theme],
-      ['高機會',   s => s.opportunity_label === '🔥 高機會'],
+      ['高機會',   _s => false], // 近期回測未過關；保留欄位供觀察，驗證通過後才恢復加分（同步 Python）
       ['52週高',   s => (Number(s.pos52w) || 0) >= 95],
       ['RS強勢',   s => s.rs20 != null && Number(s.rs20) > 5],
       ['營收穩健', s => s.revenue_yoy != null && Number(s.revenue_yoy) >= 0 && Number(s.revenue_yoy) <= 20],
@@ -200,7 +201,7 @@ const App: React.FC = () => {
     latestStocks.forEach(s => { litMap[normCode(s.stock_code)] = PICK_CONDS.filter(([, fn]) => fn(s)).map(([n]) => n); });
     const litCount = (s: DailyAnalysis) => (litMap[normCode(s.stock_code)] || []).length;
     // 雷達/市場排序用「不含AI題材」的燈數——雷達要看全台股體質，不因 AI 題材加分而擠掉其他好股；
-    // AI 偏好只留在「今日嚴選」（七盞全算）與「AI 特區」
+    // AI 偏好只留在「今日嚴選」（五盞全算）與「AI 特區」
     const litCountNoAI = (s: DailyAnalysis) => (litMap[normCode(s.stock_code)] || []).filter(n => n !== 'AI題材').length;
 
     // 排序（全清單一致，看得懂）：① 可進場優先於追高 ② 亮燈數多的優先（不含AI燈）③ 再依分數
@@ -214,12 +215,18 @@ const App: React.FC = () => {
 
     // 🏆 今日嚴選：可進場＋非地雷＋亮燈≥3 的買進訊號，取前 5。寧缺勿濫（不夠就少列）。
     const isBuySig = (s: DailyAnalysis) => ['STRONG_BUY', 'SWING_BUY', 'DAYTRADE_BUY'].includes((s.trade_signal || '').toUpperCase());
+    const hasTradePlan = (s: DailyAnalysis) => {
+      const stop = Number(s.trade_stop), entry = Number(s.trade_entry), target = Number(s.trade_tp1);
+      return Number.isFinite(stop) && Number.isFinite(entry) && Number.isFinite(target)
+        && stop > 0 && stop < entry && entry < target && Number(s.close_price) > 0;
+    };
+    const isEntryInvalid = (s: DailyAnalysis) => Number(s.close_price) < Number(s.trade_entry) * 0.97;
     const pickPool = latestStocks
-      .filter(s => isBuySig(s) && !isChasing(s) && !s.risk_flag && litCount(s) >= 3)
+      .filter(s => isBuySig(s) && hasTradePlan(s) && !isChasing(s) && !isEntryInvalid(s) && !s.risk_flag && litCount(s) >= 3)
       .sort((a, b) => {
         const d = litCount(b) - litCount(a);
         if (d) return d;
-        return (Number(b.opportunity_score) || Number(b.ai_score) || 0) - (Number(a.opportunity_score) || Number(a.ai_score) || 0);
+        return String(a.stock_code || '').localeCompare(String(b.stock_code || ''), 'en');
       });
     const topPicks = pickPool.slice(0, 5);
     const aiTopPicks = pickPool.filter(s => s.ai_theme).slice(0, 5);
@@ -807,7 +814,7 @@ const App: React.FC = () => {
               <div className="w-11 h-11 rounded-xl bg-[#FBF6EC] flex items-center justify-center text-[20px] shrink-0">🧠</div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className="text-[14px] font-black text-[#1A1A1A]">GBrain 體檢 · 高機會命中率</span>
+                  <span className="text-[14px] font-black text-[#1A1A1A]">GBrain 體檢 · 火焰暫停推薦</span>
                   {hasTrend ? (
                     <span className="num text-[17px] font-black" style={{ color: col }}>
                       前月 {g.wr_prev}% {arrow} 近月 {g.wr_recent}%
@@ -823,7 +830,7 @@ const App: React.FC = () => {
                   )}
                 </div>
                 <p className="text-[12px] text-[#8B7E68] mt-1 leading-snug">
-                  GBrain 自己標的「🔥 高機會」事後對帳命中率（命中＝5日內漲逾5%的硬門檻，門檻嚴、數字天生偏低，搭配平均每筆報酬看才公平）。{up ? '近月在進步 📈' : down ? '近月退步，演算法會自動調權修正' : '持平累積中'}。非投資建議。
+                  火焰近期驗證表現不佳，目前不計入嚴選排序。此處僅顯示舊標籤對帳：碰目標價先於停損；都未碰時，以 5 日報酬是否達 5% 判定。{up ? '近月數字上升，仍需持續驗證' : down ? '近月退步' : '樣本持續累積中'}。
                 </p>
               </div>
             </div>

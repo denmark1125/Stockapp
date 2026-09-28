@@ -16,16 +16,21 @@ export const supabase = createClient(config.url, config.key, {
 
 export const fetchDailyAnalysis = async (): Promise<DailyAnalysis[]> => {
   try {
-    const { data, error } = await supabase
-      .from('daily_analysis')
-      .select('*')
-      .order('analysis_date', { ascending: false })
-      .order('ai_score', { ascending: false })
-      .limit(3000);
-
-    if (error) throw error;
+    const rows: any[] = [];
+    for (let start = 0; start < 3000; start += 1000) {
+      const { data, error } = await supabase
+        .from('daily_analysis')
+        .select('*')
+        .order('analysis_date', { ascending: false })
+        .order('ai_score', { ascending: false })
+        .order('stock_code', { ascending: true })
+        .range(start, start + 999);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (!data || data.length < 1000) break;
+    }
     
-    return (data || []).map(item => ({
+    return rows.map(item => ({
       ...item,
       close_price: Number(item.close_price || 0),
       ai_score: Number(item.ai_score || 0),

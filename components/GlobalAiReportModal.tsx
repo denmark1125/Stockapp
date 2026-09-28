@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { X, Globe, ShieldAlert, Zap, Terminal, ExternalLink, Lock } from 'lucide-react';
-import { format } from 'date-fns';
 import { supabase } from '../services/supabase';
 
 interface GlobalAiReportModalProps {
@@ -81,7 +80,7 @@ export const GlobalAiReportModal: React.FC<GlobalAiReportModalProps> = ({ type, 
               </div>
               <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
                 <span className="text-[13px] font-black text-slate-500 uppercase block mb-1">報告日期</span>
-                <div className="text-sm font-black text-white italic">{format(new Date(), 'yyyy.MM.dd')}</div>
+                <div className="text-sm font-black text-white italic">{report?.text.match(/報告日期：(\d{4}-\d{2}-\d{2})/)?.[1] || '尚無報告'}</div>
               </div>
             </div>
           </div>
@@ -103,7 +102,7 @@ export const GlobalAiReportModal: React.FC<GlobalAiReportModalProps> = ({ type, 
               <div className="animate-in fade-in slide-in-from-bottom-10 duration-1000">
                 <div className="flex items-center gap-3 mb-10 pb-6 border-b border-white/5">
                   <ShieldAlert size={18} className="text-rose-500" />
-                  <h3 className="text-[13px] font-black text-rose-500 uppercase tracking-[0.3em]">機密文件：ALPHA 情報中心 - 最新獲利指令</h3>
+                  <h3 className="text-[13px] font-black text-rose-500 uppercase tracking-[0.3em]">ALPHA 掃描報告 · 產生時的資料快照</h3>
                 </div>
 
                 <div className="prose prose-invert max-w-none">
