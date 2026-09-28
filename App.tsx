@@ -156,8 +156,9 @@ const App: React.FC = () => {
       const days = gate.updated ? (Date.parse(twToday) - Date.parse(gate.updated)) / 86400000 : Infinity;
       return gate.active === true && days >= 0 && days <= 4;
     };
-    const picksEnabled = gateActive(pickGate);
-    const fireEnabled = picksEnabled && gateActive(fireGate);
+    // 個股清單持續提供；回測結果只標示模型風險，不能把整個個股 App 關掉。
+    const pickValidated = gateActive(pickGate);
+    const fireEnabled = gateActive(fireGate);
 
     // 🗺️ 產業脈動（掃描器收盤後寫進 SECTOR_FLOW 列的 ai_comment，JSON）→ 熱力圖＋資金流排行
     const sectorFlow: SectorFlowData | null = (() => {
@@ -205,9 +206,7 @@ const App: React.FC = () => {
     };
 
     // 與 Stock-Auto-Scanner/scan_stocks.py rank_top_picks 同步；改燈或排序時兩邊要一起改。
-    // ⭐ 嚴選五盞燈（精兵制，2026-07-03 回測 7371 筆驗證）：只留「單燈有真優勢」的贏家訊號，
-    //    弱燈（均線/法人/新聞/放量/MACD，單燈≈基準48%）會稀釋訊號已移除。
-    //    舊回測曾見遞增，但近期已失效；燈數僅作排序，不能當成勝率保證。
+    // 五盞燈僅展示條件。2026-09 可成交回測中燈數沒有遞增效益，不用來決定嚴選名次。
     //    52週高/RS強勢 需 pos52w/rs20 欄位（已建，晨掃起回填——當天資料沒有時該燈不亮不會壞）。
     const PICK_CONDS: [string, (s: DailyAnalysis) => boolean][] = [
       ['AI題材',   s => !!s.ai_theme],
@@ -218,37 +217,43 @@ const App: React.FC = () => {
     ];
     const litMap: Record<string, string[]> = {};
     latestStocks.forEach(s => { litMap[normCode(s.stock_code)] = PICK_CONDS.filter(([, fn]) => fn(s)).map(([n]) => n); });
-    const litCount = (s: DailyAnalysis) => (litMap[normCode(s.stock_code)] || []).length;
-    // 雷達/市場排序用「不含AI題材」的燈數——雷達要看全台股體質，不因 AI 題材加分而擠掉其他好股；
-    // AI 偏好只留在「今日嚴選」（五盞全算）與「AI 特區」
-    const litCountNoAI = (s: DailyAnalysis) => (litMap[normCode(s.stock_code)] || []).filter(n => n !== 'AI題材').length;
 
-    // 排序（全清單一致，看得懂）：① 可進場優先於追高 ② 亮燈數多的優先（不含AI燈）③ 再依分數
-    let baseList = [...latestStocks].sort((a, b) => {
-      const ca = isChasing(a) ? 1 : 0, cb = isChasing(b) ? 1 : 0;
-      if (ca !== cb) return ca - cb;
-      const la = litCountNoAI(a), lb = litCountNoAI(b);
-      if (la !== lb) return lb - la;
-      return getEliteScore(b) - getEliteScore(a);
-    });
-
-    // 🏆 今日嚴選：可進場＋非地雷＋亮燈≥3 的買進訊號，取前 5。寧缺勿濫（不夠就少列）。
-    const isBuySig = (s: DailyAnalysis) => ['STRONG_BUY', 'SWING_BUY', 'DAYTRADE_BUY'].includes((s.trade_signal || '').toUpperCase());
+    // 🏆 今日嚴選：與 scan_stocks.py rank_top_picks 同步；報告取前三，App 保留前五與完整 AI 股清單。
+    const isBuySig = (s: DailyAnalysis) => ['STRONG_BUY', 'SWING_BUY'].includes((s.trade_signal || '').toUpperCase());
     const hasTradePlan = (s: DailyAnalysis) => {
       const stop = Number(s.trade_stop), entry = Number(s.trade_entry), target = Number(s.trade_tp1);
       return Number.isFinite(stop) && Number.isFinite(entry) && Number.isFinite(target)
         && stop > 0 && stop < entry && entry < target && Number(s.close_price) > 0;
     };
     const isEntryInvalid = (s: DailyAnalysis) => Number(s.close_price) < Number(s.trade_entry) * 0.97;
+    const stopPct = (s: DailyAnalysis) => (Number(s.trade_entry) - Number(s.trade_stop)) / Number(s.trade_entry);
+    const fundamentalOk = (s: DailyAnalysis) => Number(s.roe) > 0 && s.revenue_yoy != null && Number(s.revenue_yoy) >= 0;
+    const stopBucket = (s: DailyAnalysis) => stopPct(s) <= 0.06 ? 0 : stopPct(s) <= 0.10 ? 1 : 2;
+    const comparePicks = (a: DailyAnalysis, b: DailyAnalysis) => {
+      const fundamentalDiff = Number(fundamentalOk(b)) - Number(fundamentalOk(a));
+      if (fundamentalDiff) return fundamentalDiff;
+      const stopDiff = stopBucket(a) - stopBucket(b);
+      if (stopDiff) return stopDiff;
+      const swingDiff = Number(b.trade_signal === 'SWING_BUY') - Number(a.trade_signal === 'SWING_BUY');
+      if (swingDiff) return swingDiff;
+      return stopPct(a) - stopPct(b) || String(a.stock_code || '').localeCompare(String(b.stock_code || ''), 'en');
+    };
     const pickPool = latestStocks
-      .filter(s => picksEnabled && isBuySig(s) && hasTradePlan(s) && (!marketOpen || s.rt_live) && !isChasing(s) && !isEntryInvalid(s) && !s.risk_flag && litCount(s) >= 3)
+      .filter(s => isBuySig(s) && hasTradePlan(s) && !isChasing(s) && !isEntryInvalid(s) && !s.risk_flag)
       .sort((a, b) => {
-        const d = litCount(b) - litCount(a);
-        if (d) return d;
-        return String(a.stock_code || '').localeCompare(String(b.stock_code || ''), 'en');
+        return comparePicks(a, b);
       });
     const topPicks = pickPool.slice(0, 5);
     const aiTopPicks = pickPool.filter(s => s.ai_theme).slice(0, 5);
+    const isReady = (s: DailyAnalysis) => pickPool.includes(s);
+    const compareLists = (a: DailyAnalysis, b: DailyAnalysis) => {
+      if (isReady(a) !== isReady(b)) return Number(isReady(b)) - Number(isReady(a));
+      if (isReady(a)) return comparePicks(a, b);
+      if (isChasing(a) !== isChasing(b)) return Number(isChasing(a)) - Number(isChasing(b));
+      if (fundamentalOk(a) !== fundamentalOk(b)) return Number(fundamentalOk(b)) - Number(fundamentalOk(a));
+      return getEliteScore(b) - getEliteScore(a) || String(a.stock_code || '').localeCompare(String(b.stock_code || ''), 'en');
+    };
+    const baseList = [...latestStocks].sort(compareLists);
     // 只保留真正精銳的標的：分數 ≥ 70 且 trade_signal 不是 AVOID
     const eliteList = baseList.filter(s => {
       const score = strategy === 'short' ? (Number(s.score_short) || 0) : (Number(s.score_long) || 0);
@@ -309,17 +314,10 @@ const App: React.FC = () => {
       .sort((a, b) => b.value - a.value);
     const portfolioSummary = { totalCost, totalValue, totalPL, totalPLPct, allocation, count: portfolioList.length };
 
-    // 🤖 AI 特區：只收 AI 題材股；排序與全站一致＝① 可進場 ② 亮燈數 ③ 分數
+    // 🤖 AI 特區：保留多檔完整清單，可按相同交易計畫排序；非買訊留在後面供觀察。
     const aiList = [...latestStocks]
       .filter(s => s.ai_theme)
-      .sort((a, b) => {
-        const ca = isChasing(a) ? 1 : 0, cb = isChasing(b) ? 1 : 0;
-        if (ca !== cb) return ca - cb;
-        const la = litCount(a), lb = litCount(b);
-        if (la !== lb) return lb - la;
-        return (Number(b.opportunity_score) || Number(b.ai_score) || 0) -
-               (Number(a.opportunity_score) || Number(a.ai_score) || 0);
-      });
+      .sort(compareLists);
 
     // 願望清單：join watchlist 代碼與 latestStocks 取得即時分析資料
     const watchlistDisplay = watchlist.map(w => {
@@ -346,7 +344,7 @@ const App: React.FC = () => {
       fireGate,
       fireEnabled,
       pickGate,
-      picksEnabled,
+      pickValidated,
       marketOpen,
       sectorFlow,
       marketVolRatio,
@@ -932,10 +930,10 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* 🏆 今日嚴選：可進場＋亮燈≥3 的前 5 檔（AI 特區只嚴選 AI 股）。下面完整清單照舊保留 */}
-        {!processedData.picksEnabled && activeView !== 'portfolio' && (
+        {/* 🏆 今日嚴選：有效買點的前 5 檔；AI 特區只列 AI 股，完整清單照舊保留。 */}
+        {!processedData.pickValidated && activeView !== 'portfolio' && (
           <div className="mb-5 px-5 py-4 bg-amber-50 border border-amber-200 rounded-2xl text-[13px] font-bold text-amber-800">
-            今日嚴選暫停：照原本買點與停損回測，嚴選組尚未跑贏一般買訊。先看資料，不要照卡片直接下單；有新成交驗證連續通過才恢復。
+            嚴選模型近期回測表現不佳。今日仍列出多檔個股候選；請只按當日買點掛限價，盤中超過買點 3% 別追，並留意停損價也可能無法成交。
           </div>
         )}
         {(activeView === 'elite' || activeView === 'ai') && (() => {
@@ -944,25 +942,25 @@ const App: React.FC = () => {
             <div className="mb-12">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-4">
                 <h3 className="text-[15px] font-black text-[#1A1A1A] tracking-wide">🏆 今日嚴選</h3>
-                <span className="text-[12px] font-bold text-slate-400">可進場＋亮燈≥3 才入選 · 燈數只作排序，不保證勝率</span>
+                <span className="text-[12px] font-bold text-slate-400">有效買點＋非地雷；先看基本面與停損距離 · 前 5 檔</span>
               </div>
               {picks.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {picks.map((s, i) => (
-                    <ActionCard key={`pick-${s.id}`} stock={s} strategyMode={strategy} signalStats={processedData.signalStats} fireEnabled={processedData.fireEnabled} picksEnabled={processedData.picksEnabled} marketOpen={processedData.marketOpen}
+                    <ActionCard key={`pick-${s.id}`} stock={s} strategyMode={strategy} signalStats={processedData.signalStats} fireEnabled={processedData.fireEnabled} marketOpen={processedData.marketOpen}
                       pickInfo={{ rank: i + 1, conds: processedData.litMap[(s.stock_code || '').replace(/\.(TW|TWO)$/i, '').toUpperCase()] || [] }}
                       onSelect={() => { setSelectedStock(s); setStockAiReport(null); }} />
                   ))}
                 </div>
               ) : (
                 <div className="py-10 text-center bg-white rounded-[2rem] border border-slate-100">
-                  <p className="serif-text text-lg text-slate-300 italic mb-1">{processedData.picksEnabled ? '今日沒有「可進場＋亮燈≥3」的標的' : '嚴選驗證未過關，今天不列推薦'}</p>
-                  <p className="text-[12px] font-bold text-slate-400">寧缺勿濫——先不要照系統訊號下單</p>
+                  <p className="serif-text text-lg text-slate-300 italic mb-1">今天沒有買點有效且非地雷的個股</p>
+                  <p className="text-[12px] font-bold text-slate-400">完整 AI 股與觀察清單仍列在下方；等下一次掃描更新買點</p>
                 </div>
               )}
               <div className="flex items-baseline gap-3 mt-10 mb-2">
                 <h3 className="text-[13px] font-black text-slate-500 tracking-wide">完整觀察清單</h3>
-                <span className="text-[12px] font-bold text-slate-400">排序：可進場 → 亮燈數 → 分數（追高的排最後）</span>
+                <span className="text-[12px] font-bold text-slate-400">排序：買點有效 → 基本面與停損距離 → 觀察分數（追高排後）</span>
               </div>
             </div>
           );
@@ -985,7 +983,7 @@ const App: React.FC = () => {
               return code.includes(q) || name.includes(q);
             })
             .map((s, i) => (
-              <ActionCard key={s.id} stock={s} strategyMode={strategy} signalStats={processedData.signalStats} fireEnabled={processedData.fireEnabled} picksEnabled={processedData.picksEnabled} marketOpen={processedData.marketOpen}
+              <ActionCard key={s.id} stock={s} strategyMode={strategy} signalStats={processedData.signalStats} fireEnabled={processedData.fireEnabled} marketOpen={processedData.marketOpen}
                 orderNo={activeView !== 'portfolio' ? i + 1 : undefined}
                 lit={processedData.litMap[(s.stock_code || '').replace(/\.(TW|TWO)$/i, '').toUpperCase()]}
                 onSelect={() => { setSelectedStock(s); setStockAiReport(null); }} />
@@ -1005,7 +1003,7 @@ const App: React.FC = () => {
                 const rt = realtimeQuotes[(r.stock_code || '').replace(/\.(TW|TWO)$/i, '').toUpperCase()];
                 return (
                   <ActionCard key={`hist-${r.stock_code}`} stock={rt && rt > 0 ? { ...r, close_price: rt, rt_live: true } : r}
-                    strategyMode={strategy} signalStats={processedData.signalStats} fireEnabled={processedData.fireEnabled} picksEnabled={processedData.picksEnabled}
+                    strategyMode={strategy} signalStats={processedData.signalStats} fireEnabled={processedData.fireEnabled}
                     onSelect={() => { setSelectedStock(r); setStockAiReport(null); }} />
                 );
               })}

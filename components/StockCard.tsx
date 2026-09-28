@@ -11,7 +11,6 @@ interface ActionCardProps {
   orderNo?: number;                               // 清單推薦順位（#1 #2 …讓排序看得懂）
   lit?: string[];                                 // 亮燈清單（五個篩選條件）
   fireEnabled?: boolean;
-  picksEnabled?: boolean;
   marketOpen?: boolean;
 }
 
@@ -26,8 +25,8 @@ const getSignalStyle = (rawSignal: string, score: number, isHolding: boolean, is
   const signal = resolveSignal(rawSignal, score, isHolding);
   if (isStopped) return { signal, accentColor: '#C83232', accentWidth: '100%', labelText: '🔴 跌破停損', labelColor: 'text-[#C83232]', pillBg: '#FBF1EF', action: '已跌破停損價，請立即出場保護資金', isActive: true };
   switch (signal) {
-    case 'STRONG_BUY': return { signal, accentColor: '#C83232', accentWidth: '100%', labelText: '強力買進', labelColor: 'text-[#C83232]', pillBg: '#FBF1EF', action: '技術面＋基本面雙軌高分，優先考慮進場', isActive: true };
-    case 'SWING_BUY':  return { signal, accentColor: '#C83232', accentWidth: '70%',  labelText: '波段買進',  labelColor: 'text-[#C83232]', pillBg: '#FBF1EF', action: '趨勢向上＋基本面支撐，適合波段持有', isActive: true };
+    case 'STRONG_BUY': return { signal, accentColor: '#C83232', accentWidth: '100%', labelText: '強力買進', labelColor: 'text-[#C83232]', pillBg: '#FBF1EF', action: '短線與波段分數都達門檻，請核對買點與風險', isActive: true };
+    case 'SWING_BUY':  return { signal, accentColor: '#C83232', accentWidth: '70%',  labelText: '波段買進',  labelColor: 'text-[#C83232]', pillBg: '#FBF1EF', action: '波段分數達門檻，請用限價單並留意停損', isActive: true };
     case 'DAYTRADE_BUY': return { signal, accentColor: '#C87832', accentWidth: '60%', labelText: '短線操作', labelColor: 'text-[#C87832]', pillBg: '#FBF4E9', action: '爆量高波動，適合短線操作，嚴守停損', isActive: true };
     case 'WATCH': return { signal, accentColor: '#B8A882', accentWidth: '40%', labelText: '觀望', labelColor: 'text-[#9A8B6E]', pillBg: '#F2EFE7', action: '有潛力但尚未完全確認，等量能放大再考慮', isActive: false };
     case 'HOLD':  return { signal, accentColor: '#2A2A2A', accentWidth: '50%', labelText: '持有中', labelColor: 'text-[#2A2A2A]', pillBg: '#EFEDE8', action: '趨勢未破，繼續持有，注意停損位置', isActive: false };
@@ -35,18 +34,14 @@ const getSignalStyle = (rawSignal: string, score: number, isHolding: boolean, is
   }
 };
 
-export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strategyMode, signalStats, pickInfo, orderNo, lit, fireEnabled = false, picksEnabled = false, marketOpen = false }) => {
+export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strategyMode, signalStats, pickInfo, orderNo, lit, fireEnabled = false, marketOpen = false }) => {
   const score = strategyMode === 'short' ? (Number(stock.score_short) || 0) : (Number(stock.score_long) || 0);
   const modeLabel = strategyMode === 'short' ? '當沖' : '波段'; // 結論依據要標清楚是哪一種策略的分數
   const isProfit = (stock.profit_loss_ratio || 0) >= 0;
   const isStopped = !!(stock.is_holding_item && stock.trade_stop && stock.close_price < stock.trade_stop);
   const rawStyle = getSignalStyle(stock.trade_signal, score, !!stock.is_holding_item, isStopped);
-  const style = !picksEnabled && ['STRONG_BUY', 'SWING_BUY', 'DAYTRADE_BUY'].includes(rawStyle.signal) && !stock.is_holding_item
-    ? { ...rawStyle, labelText: '買訊待驗證', labelColor: 'text-slate-600', pillBg: '#F1F5F9',
-        accentColor: '#94A3B8', action: '整體推薦驗證未過關，先不要照訊號下單', isActive: false }
-    : rawStyle;
+  const style = rawStyle;
   const isBuySignal = ['STRONG_BUY', 'SWING_BUY', 'DAYTRADE_BUY'].includes(style.signal);
-  const planUnverified = isBuySignal && !picksEnabled && !stock.is_holding_item;
   const hasTradePlan = Number(stock.trade_stop) > 0 && Number(stock.trade_stop) < Number(stock.trade_entry)
     && Number(stock.trade_entry) < Number(stock.trade_tp1);
   const hasAlert = stock.trade_label && ['🚫 今日跌停','🔴 大跌警告','📤 爆量出貨','⚡ 超買反轉','❌ 掛單失效'].includes(stock.trade_label);
@@ -98,12 +93,12 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
     if (sig === 'SELL_STOP') return { tag: '結論', txt: '已破停損 · 建議出場', accent: '#C83232', bg: '#FBF1EF', fg: '#C83232', reasons: [`現價${stock.close_price}`, stock.trade_stop ? `跌破停損${stock.trade_stop}` : ''].filter(Boolean) };
     if (sig === 'AVOID') return { tag: '結論', txt: '避開 · 現在別碰', accent: '#B5AE9E', bg: '#F2EFE7', fg: '#8B8270', reasons: reasons.length ? reasons : ['系統評估條件不足'] };
     if (isBuySignal) {
-      if (!picksEnabled) return { tag: '結論', txt: '買訊驗證未過關，先不要跟單', accent: '#C87832', bg: '#FBF4E9', fg: '#A8702A', reasons };
+      if (stock.risk_flag || hasAlert) return { tag: '結論', txt: '有風險警示，先別買', accent: '#C87832', bg: '#FBF4E9', fg: '#A8702A', reasons };
       if (!hasTradePlan) return { tag: '結論', txt: '價位計畫不完整，先別買', accent: '#C87832', bg: '#FBF4E9', fg: '#A8702A', reasons };
       if (entryFeasibility === 'broken') return { tag: '結論', txt: '跌破原買點，先等重新評估', accent: '#C87832', bg: '#FBF4E9', fg: '#A8702A', reasons };
       if (entryFeasibility === 'pending') return { tag: '結論', txt: '盤中報價尚未更新，先不要下單', accent: '#C87832', bg: '#FBF4E9', fg: '#A8702A', reasons };
       if (entryFeasibility === 'chasing') return { tag: '結論', txt: '今天已經漲過頭，別追', accent: '#C87832', bg: '#FBF4E9', fg: '#A8702A', reasons };
-      return { tag: '可買', txt: '可考慮買進', accent: '#C83232', bg: '#FBF1EF', fg: '#C83232', reasons };
+      return { tag: '候選', txt: '買點附近，可考慮限價分批', accent: '#C83232', bg: '#FBF1EF', fg: '#C83232', reasons };
     }
     return { tag: '結論', txt: '觀望 · 先別動', accent: '#B5AE9E', bg: '#F2EFE7', fg: '#8B8270', reasons: reasons.length ? reasons : ['量能未放大'] };
   })();
@@ -124,7 +119,11 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
           <div className="w-[4px] shrink-0" style={{ backgroundColor: '#C8A032' }} />
           <div className="px-4 py-2 flex items-baseline gap-2 flex-wrap min-w-0">
             <span className="text-[13px] font-black" style={{ color: '#A8842A' }}>🏆 嚴選 #{pickInfo.rank}</span>
-            <span className="text-[12px] font-medium" style={{ color: '#8B7E68' }}>亮燈 {pickInfo.conds.length}/5：{pickInfo.conds.join('·')}</span>
+            <span className="text-[12px] font-medium" style={{ color: '#8B7E68' }}>
+              停損距離 {((1 - Number(stock.trade_stop) / Number(stock.trade_entry)) * 100).toFixed(1)}%
+              {Number(stock.roe) > 0 && stock.revenue_yoy != null && Number(stock.revenue_yoy) >= 0 ? ' · ROE 與營收為正' : ''}
+              {pickInfo.conds.length ? ` · 條件：${pickInfo.conds.join('·')}` : ''}
+            </span>
           </div>
         </div>
       )}
@@ -271,7 +270,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
                 {stock.trade_label}
               </span>
             )}
-            {!hasAlert && picksEnabled && entryFeasibility === 'ok' && (
+            {!hasAlert && !stock.risk_flag && entryFeasibility === 'ok' && hasTradePlan && (
               <span className="text-[12px] font-bold text-emerald-700 bg-emerald-50 rounded-full px-2.5 py-1">
                 ✓ 可進場
               </span>
@@ -307,25 +306,25 @@ export const ActionCard: React.FC<ActionCardProps> = ({ stock, onSelect, strateg
 
         {/* ── 操作指令 ── */}
         <p className={`text-[13px] leading-relaxed mb-4 font-medium ${style.labelColor}`}>
-          「{isBuySignal && !picksEnabled && !stock.is_holding_item ? '目前整體推薦驗證未過關，先不要照訊號下單' : isBuySignal && !hasTradePlan && !stock.is_holding_item ? '缺少完整進場、停損或目標價，今天先不要下單' : entryFeasibility === 'pending' ? '盤中報價尚未更新，先不要下單' : entryFeasibility === 'broken' ? '現價已低於原買點 3%，舊訊號失效，先等重新掃描' : entryFeasibility === 'chasing' ? '現價高於建議買點 3%，今天先不要追價' : style.action}」
+          「{isBuySignal && (stock.risk_flag || hasAlert) ? '有風險警示，今天先不要下單' : isBuySignal && !hasTradePlan && !stock.is_holding_item ? '缺少完整進場、停損或目標價，今天先不要下單' : entryFeasibility === 'pending' ? '盤中報價尚未更新，先不要下單' : entryFeasibility === 'broken' ? '現價已低於原買點 3%，舊訊號失效，先等重新掃描' : entryFeasibility === 'chasing' ? '現價高於建議買點 3%，今天先不要追價' : style.action}」
         </p>
 
         {/* ── 三格價格 ── */}
         <div className="grid grid-cols-3 gap-1.5">
           <div className="bg-emerald-50/70 rounded-xl py-2.5 text-center">
-            <div className="text-[13px] font-bold text-emerald-700/70 mb-0.5">{planUnverified ? '未驗證試算目標' : '目標價'}</div>
+            <div className="text-[13px] font-bold text-emerald-700/70 mb-0.5">模型目標</div>
             <div className="num text-[17px] font-bold text-emerald-700">{stock.trade_tp1 ?? '—'}</div>
           </div>
           <div className={`rounded-xl py-2.5 text-center ${isStopped ? 'bg-[#FBF1EF]' : 'bg-[#F8F5EE]'}`}>
-            <div className={`text-[13px] font-bold mb-0.5 ${isStopped ? 'text-[#C83232]/70' : 'text-[#A89878]'}`}>{planUnverified ? '未驗證試算停損' : '停損價'}</div>
+            <div className={`text-[13px] font-bold mb-0.5 ${isStopped ? 'text-[#C83232]/70' : 'text-[#A89878]'}`}>停損參考</div>
             <div className={`num text-[17px] font-bold ${isStopped ? 'text-[#C83232]' : 'text-[#5A4E3C]'}`}>{stock.trade_stop ?? '—'}</div>
           </div>
           <div className="bg-[#FBF4E9] rounded-xl py-2.5 text-center">
-            <div className="text-[13px] font-bold text-[#C87832]/70 mb-0.5">{planUnverified ? '未驗證試算買點' : '建議進場'}</div>
+            <div className="text-[13px] font-bold text-[#C87832]/70 mb-0.5">建議掛單</div>
             <div className={`num text-[17px] font-bold ${stock.trade_entry ? 'text-[#C87832]' : 'text-[#C8BA9A]'}`}>{stock.trade_entry ?? '—'}</div>
           </div>
         </div>
-        {planUnverified && <p className="mt-2 text-[11px] text-slate-500">以上是舊模型試算價；成交回測未過關，請勿當作下單依據。</p>}
+        {isBuySignal && !stock.is_holding_item && <p className="mt-2 text-[11px] text-slate-500">買點、停損與目標是模型價位，不保證成交或獲利；近期成交回測仍偏弱，請控制單檔風險。</p>}
       </div>
 
       {/* ── 版腳數據列 ── */}
