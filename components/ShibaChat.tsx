@@ -72,6 +72,18 @@ export const ShibaChat: React.FC<ShibaChatProps> = ({ stocks, holdings, topPicks
     setBusy(true);
     try {
       const related = await findRelated(q);
+      // v3：「今天買什麼」改用柴柴今日可進（CHAI_PICKS），與 App 卡片、LINE 同一份
+      let chaiText = '今天名單還沒算好';
+      try {
+        const { data: cp } = await supabase.from('daily_analysis').select('ai_comment')
+          .eq('stock_code', 'CHAI_PICKS').order('analysis_date', { ascending: false }).limit(1);
+        if (cp && cp[0]?.ai_comment) {
+          const j = JSON.parse(cp[0].ai_comment as string);
+          chaiText = `${j.action}` + (j.picks || []).map((x: any, i: number) =>
+            `\n${i + 1}. ${x.name}(${x.code}) 買在${x.buy_below}以下 跌破${x.stop}要賣（${x.why}）`).join('') +
+            ((j.picks || []).length ? `\n${j.reliability}` : '');
+        }
+      } catch { /* 保持預設文字 */ }
       const holdLines = holdings.map(h =>
         `${h.stock_name}(${norm(h.stock_code)}) 買${h.buy_price} 現${h.close_price} 損益${typeof h.profit_loss_ratio === 'number' ? h.profit_loss_ratio.toFixed(1) : '—'}%` +
         (h.gbrain_action ? ` GBrain建議:${h.gbrain_action}` : '') + ` 停損${h.trade_stop ?? '—'}`
@@ -82,10 +94,10 @@ export const ShibaChat: React.FC<ShibaChatProps> = ({ stocks, holdings, topPicks
 1. 只能根據下面提供的真實資料回答，資料裡沒有的數字絕對不能編。沒資料就老實說「今天雷達沒掃到這檔」，教他等明天掃描或用 LINE 傳代碼查。
 2. 不保證獲利、不說穩賺。給任何買進意見一定同時講「停損價，跌破就走不凹單」。
 3. 200 字以內、分段、新手看得懂。台灣習慣：漲用紅、跌用綠的說法。
-4. 問持股→用【我的持股】；問今天買什麼→用【今日嚴選】（沒有就說寧缺勿濫先別出手）；問大盤→用【大盤】。
+4. 問持股→用【我的持股】；問今天買什麼→用【柴柴今日可進】照抄名單與狀態（說先不要買就照說，不要自己另外推薦）；問大盤→用【大盤】。
 
 【大盤】趨勢 ${market.regime === 'BULL' ? '多頭' : market.regime === 'BEAR' ? '空頭' : '盤整'}，今日 ${market.changePct != null ? `${market.changePct > 0 ? '+' : ''}${Number(market.changePct).toFixed(2)}%` : '—'}。${market.msg || ''}
-【今日嚴選】${topPicks.length ? '\n' + topPicks.map(brief).join('\n') : '今天沒有達標的嚴選（可進場＋亮燈≥3），寧缺勿濫'}
+【柴柴今日可進】${chaiText}
 【我的持股】${holdLines.length ? '\n' + holdLines.join('\n') : '目前無持股'}
 ${related.length ? `【提問相關個股】\n${related.join('\n')}` : ''}
 

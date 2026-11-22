@@ -11,6 +11,7 @@ import { ActionCard } from './components/StockCard';
 import { SystemStatus } from './components/SystemStatus';
 import { MarketBriefing } from './components/MarketBriefing';
 import { MarketPulse, SectorFlowData } from './components/MarketPulse';
+import { ChaiPicks } from './components/ChaiPicks';
 import { StockDetailModal } from './components/StockDetailModal';
 import { ShibaChat } from './components/ShibaChat';
 import { GuideModal } from './components/GuideModal';
@@ -114,7 +115,7 @@ const App: React.FC = () => {
 
     // ⚠️ 算「最新日期」只看真正的股票列，略過 MARKET_*/SIGNAL_STATS 這些特殊列——
     //    否則回測寫一筆「今天」的 SIGNAL_STATS、但今天選股還沒跑時，latestDate 會指到沒有股票的日期 → 清單變空白
-    const SPECIAL_CODES = new Set(['MARKET_BRIEF', 'MARKET_STATE', 'SIGNAL_STATS', 'SECTOR_FLOW']);
+    const SPECIAL_CODES = new Set(['MARKET_BRIEF', 'MARKET_STATE', 'SIGNAL_STATS', 'SECTOR_FLOW', 'CHAI_PICKS']);
     const allDates = [...new Set(state.data.filter(s => !SPECIAL_CODES.has(s.stock_code)).map(s => s.analysis_date))].sort().reverse();
     const latestDate = allDates[0] || null;
     const latestData = latestDate ? state.data.filter(s => s.analysis_date === latestDate) : [];
@@ -930,41 +931,16 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* 🏆 今日嚴選：有效買點的前 5 檔；AI 特區只列 AI 股，完整清單照舊保留。 */}
-        {!processedData.pickValidated && activeView !== 'portfolio' && (
-          <div className="mb-5 px-5 py-4 bg-amber-50 border border-amber-200 rounded-2xl text-[13px] font-bold text-amber-800">
-            嚴選模型近期回測表現不佳。今日仍列出多檔個股候選；請只按當日買點掛限價，盤中超過買點 3% 別追，並留意停損價也可能無法成交。
-          </div>
-        )}
-        {(activeView === 'elite' || activeView === 'ai') && (() => {
-          const picks = activeView === 'ai' ? processedData.aiTopPicks : processedData.topPicks;
-          return (
-            <div className="mb-12">
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-4">
-                <h3 className="text-[15px] font-black text-[#1A1A1A] tracking-wide">🏆 今日嚴選</h3>
-                <span className="text-[12px] font-bold text-slate-400">有效買點＋非地雷；先看基本面與停損距離 · 前 5 檔</span>
-              </div>
-              {picks.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {picks.map((s, i) => (
-                    <ActionCard key={`pick-${s.id}`} stock={s} strategyMode={strategy} signalStats={processedData.signalStats} fireEnabled={processedData.fireEnabled} marketOpen={processedData.marketOpen}
-                      pickInfo={{ rank: i + 1, conds: processedData.litMap[(s.stock_code || '').replace(/\.(TW|TWO)$/i, '').toUpperCase()] || [] }}
-                      onSelect={() => { setSelectedStock(s); setStockAiReport(null); }} />
-                  ))}
-                </div>
-              ) : (
-                <div className="py-10 text-center bg-white rounded-[2rem] border border-slate-100">
-                  <p className="serif-text text-lg text-slate-300 italic mb-1">今天沒有買點有效且非地雷的個股</p>
-                  <p className="text-[12px] font-bold text-slate-400">完整 AI 股與觀察清單仍列在下方；等下一次掃描更新買點</p>
-                </div>
-              )}
-              <div className="flex items-baseline gap-3 mt-10 mb-2">
-                <h3 className="text-[13px] font-black text-slate-500 tracking-wide">完整觀察清單</h3>
-                <span className="text-[12px] font-bold text-slate-400">排序：買點有效 → 基本面與停損距離 → 觀察分數（追高排後）</span>
-              </div>
+        {/* 🐕 柴柴今日可進 v3（2026-11-22）：取代舊「今日嚴選」。舊嚴選回測輸大盤且追高，用戶要極簡名單。
+            後端 chai_picks.py 寫 CHAI_PICKS；完整觀察清單照舊保留在下方。 */}
+        {(activeView === 'elite' || activeView === 'ai') && (
+          <>
+            <ChaiPicks />
+            <div className="flex items-baseline gap-3 mb-2">
+              <h3 className="text-[13px] font-black text-slate-500 tracking-wide">完整觀察清單（非買進推薦）</h3>
             </div>
-          );
-        })()}
+          </>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {activeView === 'portfolio' && (
